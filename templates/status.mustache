@@ -1,0 +1,104 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignfeedback_proctorai/status
+
+    Every student's latest Proctor AI job in one assignment.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * rows, hasrows - One row per student with a job
+    * summary - Count per status
+    * balance, hasbalance - Sheets remaining, from the cache
+    * paused - Whether the plugin is paused site-wide
+    * gradeallurl, backurl - Links
+
+    Example context (json):
+    {
+        "rows": [
+            {
+                "name": "Sam Student",
+                "status": "done",
+                "statuslabel": "Graded by AI",
+                "error": "",
+                "marks": "AI: 7 / 10 (70%)",
+                "reviewcount": 1,
+                "approved": false,
+                "time": "21/10/26, 10:00"
+            }
+        ],
+        "hasrows": true,
+        "summary": [{"label": "Graded by AI", "count": 1}],
+        "balance": 120,
+        "hasbalance": true,
+        "paused": false,
+        "gradeallurl": "https://example.com/mod/assign/view.php?id=12",
+        "backurl": "https://example.com/mod/assign/view.php?id=12&action=grading"
+    }
+}}
+<div class="assignfeedback_proctorai_statuspage">
+    {{#paused}}
+        <div class="alert alert-danger">{{#str}} paused, assignfeedback_proctorai {{/str}}</div>
+    {{/paused}}
+    <p>
+        {{#summary}}<span class="badge bg-light text-dark me-1">{{label}}: {{count}}</span>{{/summary}}
+        {{#hasbalance}}<span class="ms-2 text-muted">{{#str}} sheetsn, assignfeedback_proctorai, {{balance}} {{/str}}</span>{{/hasbalance}}
+    </p>
+    {{#hasrows}}
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col">{{#str}} student, assignfeedback_proctorai {{/str}}</th>
+                        <th scope="col">{{#str}} status, assignfeedback_proctorai {{/str}}</th>
+                        <th scope="col">{{#str}} aitotal, assignfeedback_proctorai {{/str}}</th>
+                        <th scope="col">{{#str}} lastchange, assignfeedback_proctorai {{/str}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{#rows}}
+                        <tr>
+                            <td>{{name}}</td>
+                            <td>
+                                {{statuslabel}}
+                                {{#error}}<div class="small text-danger">{{error}}</div>{{/error}}
+                            </td>
+                            <td>
+                                {{marks}}
+                                {{#reviewcount}}<span class="badge bg-warning text-dark">{{#str}} summaryreview, assignfeedback_proctorai, {{reviewcount}} {{/str}}</span>{{/reviewcount}}
+                                {{#approved}}<span class="badge bg-success">{{#str}} approved, assignfeedback_proctorai {{/str}}</span>{{/approved}}
+                            </td>
+                            <td>{{time}}</td>
+                        </tr>
+                    {{/rows}}
+                </tbody>
+            </table>
+        </div>
+    {{/hasrows}}
+    {{^hasrows}}
+        <p>{{#str}} nojobs, assignfeedback_proctorai {{/str}}</p>
+    {{/hasrows}}
+    <p>
+        {{#gradeallurl}}<a class="btn btn-primary" href="{{gradeallurl}}">{{#str}} gradeall, assignfeedback_proctorai {{/str}}</a>{{/gradeallurl}}
+        <a class="btn btn-secondary" href="{{backurl}}">{{#str}} back {{/str}}</a>
+    </p>
+</div>

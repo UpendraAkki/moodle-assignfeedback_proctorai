@@ -1,0 +1,100 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignfeedback_proctorai/confirm
+
+    Confirm the cost of grading the selected students before anything is queued.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * blocker - Why the assignment cannot be graded, if it cannot
+    * accounterror - Why the balance could not be read
+    * count, requested - Students to be graded, and asked for
+    * skipped, hasskipped - Reasons students were left out
+    * price, cost, balance, sheets, hasaccount, insufficient - Billing
+    * canqueue - Whether the button is enabled
+    * actionurl, cmid, selectedusers, sesskey, cancelurl - The form
+
+    Example context (json):
+    {
+        "blocker": "",
+        "accounterror": "",
+        "count": 3,
+        "requested": 4,
+        "skipped": [{"reason": "No submission yet", "count": 1}],
+        "hasskipped": true,
+        "price": "1",
+        "cost": "3",
+        "balance": "120",
+        "sheets": 120,
+        "hasaccount": true,
+        "insufficient": false,
+        "canqueue": true,
+        "actionurl": "https://example.com/mod/assign/view.php",
+        "cmid": 12,
+        "selectedusers": "3,4,5",
+        "sesskey": "abc123",
+        "cancelurl": "https://example.com/mod/assign/view.php?id=12&action=grading"
+    }
+}}
+<div class="assignfeedback_proctorai_confirm">
+    {{#blocker}}
+        <div class="alert alert-danger">{{blocker}}</div>
+    {{/blocker}}
+    {{^blocker}}
+        <p>{{#str}} confirmintro, assignfeedback_proctorai, {"count": {{count}}, "requested": {{requested}} } {{/str}}</p>
+        {{#hasskipped}}
+            <ul>
+                {{#skipped}}
+                    <li>{{reason}}: {{count}}</li>
+                {{/skipped}}
+            </ul>
+        {{/hasskipped}}
+        {{#accounterror}}
+            <div class="alert alert-danger">{{#str}} statuserror, assignfeedback_proctorai, {{accounterror}} {{/str}}</div>
+        {{/accounterror}}
+        {{#hasaccount}}
+            <table class="table table-sm w-auto">
+                <tbody>
+                    <tr><th scope="row">{{#str}} costpersheet, assignfeedback_proctorai {{/str}}</th><td>{{price}}</td></tr>
+                    <tr><th scope="row">{{#str}} costtotal, assignfeedback_proctorai {{/str}}</th><td>{{cost}}</td></tr>
+                    <tr><th scope="row">{{#str}} balance, assignfeedback_proctorai {{/str}}</th><td>{{balance}} ({{#str}} sheetsn, assignfeedback_proctorai, {{sheets}} {{/str}})</td></tr>
+                </tbody>
+            </table>
+            {{#insufficient}}
+                <div class="alert alert-warning">{{#str}} insufficient, assignfeedback_proctorai {{/str}}</div>
+            {{/insufficient}}
+        {{/hasaccount}}
+        <p class="text-muted">{{#str}} confirmprivacy, assignfeedback_proctorai {{/str}}</p>
+    {{/blocker}}
+    <form method="post" action="{{actionurl}}">
+        <input type="hidden" name="id" value="{{cmid}}">
+        <input type="hidden" name="action" value="viewpluginpage">
+        <input type="hidden" name="plugin" value="proctorai">
+        <input type="hidden" name="pluginsubtype" value="assignfeedback">
+        <input type="hidden" name="pluginaction" value="queue">
+        <input type="hidden" name="selectedusers" value="{{selectedusers}}">
+        <input type="hidden" name="sesskey" value="{{sesskey}}">
+        <button type="submit" class="btn btn-primary" {{^canqueue}}disabled{{/canqueue}}>{{#str}} confirmbutton, assignfeedback_proctorai, {{count}} {{/str}}</button>
+        <a class="btn btn-secondary" href="{{cancelurl}}">{{#str}} cancel {{/str}}</a>
+    </form>
+</div>

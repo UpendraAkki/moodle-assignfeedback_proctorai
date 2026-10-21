@@ -1,0 +1,148 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignfeedback_proctorai/grader_panel
+
+    The Proctor AI result in the grader: total, per-question table and the "Use AI grade" button.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * data-region="assignfeedback_proctorai-status"
+    * data-action="assignfeedback_proctorai-usegrade"
+
+    Context variables required for this template:
+    * panelid - Unique id of the panel element
+    * status - Job status code
+    * statuslabel - Job status text
+    * errormessage - Why the job stopped
+    * hasresult - Whether there is a result
+    * earned, maxmarks, percentage - The AI total
+    * reviewcount, needsreview - Questions flagged for review
+    * canusegrade, suggestedgrade, suggestedgraderaw, maxgrade - The grade button
+    * percentonly - The assignment uses a scale or advanced grading
+    * prefilled, approved, pagecount
+    * questions - Per-question rows
+
+    Example context (json):
+    {
+        "panelid": "assignfeedback_proctorai_panel1",
+        "status": "done",
+        "statuslabel": "Graded by AI",
+        "errormessage": "",
+        "hasresult": true,
+        "earned": "7",
+        "maxmarks": "10",
+        "percentage": "70",
+        "reviewcount": 1,
+        "needsreview": true,
+        "canusegrade": true,
+        "suggestedgrade": "70",
+        "suggestedgraderaw": 70,
+        "maxgrade": "100",
+        "percentonly": false,
+        "prefilled": true,
+        "approved": false,
+        "pagecount": 2,
+        "questions": [
+            {
+                "label": "1",
+                "earned": "2",
+                "max": "2",
+                "feedback": "Correct.",
+                "studentanswer": "Paris",
+                "reasoning": "Matches the expected answer.",
+                "confidence": "95%",
+                "needsreview": false,
+                "reviewreason": ""
+            },
+            {
+                "label": "2a",
+                "earned": "0",
+                "max": "3",
+                "feedback": "Working is unclear.",
+                "studentanswer": "x = 4?",
+                "reasoning": "The final line is hard to read.",
+                "confidence": "40%",
+                "needsreview": true,
+                "reviewreason": "Handwriting is unclear"
+            }
+        ]
+    }
+}}
+<div id="{{panelid}}" class="assignfeedback_proctorai_panel card mb-3" data-status="{{status}}">
+    <div class="card-body p-2">
+        <h4 class="h6 card-title mb-2">{{#str}} pluginname, assignfeedback_proctorai {{/str}}</h4>
+        <p class="mb-2" data-region="assignfeedback_proctorai-status" aria-live="polite">
+            <span class="badge bg-secondary">{{statuslabel}}</span>
+            {{#errormessage}}<span class="text-danger small d-block">{{errormessage}}</span>{{/errormessage}}
+        </p>
+        {{#hasresult}}
+            <p class="mb-1">
+                <strong>{{#str}} aitotal, assignfeedback_proctorai {{/str}}</strong>
+                {{earned}} / {{maxmarks}} ({{percentage}}%)
+                {{#pagecount}}<span class="text-muted small">&middot; {{#str}} pagesn, assignfeedback_proctorai, {{pagecount}} {{/str}}</span>{{/pagecount}}
+            </p>
+            {{#needsreview}}
+                <div class="alert alert-warning py-1 px-2 mb-2 small">{{#str}} summaryreview, assignfeedback_proctorai, {{reviewcount}} {{/str}}</div>
+            {{/needsreview}}
+            {{#canusegrade}}
+                <p class="mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-action="assignfeedback_proctorai-usegrade" data-grade="{{suggestedgraderaw}}">
+                        {{#str}} usegrade, assignfeedback_proctorai, {{suggestedgrade}} {{/str}}
+                    </button>
+                    <span class="text-muted small">/ {{maxgrade}}</span>
+                    {{#prefilled}}<span class="d-block text-muted small">{{#str}} prefillednote, assignfeedback_proctorai {{/str}}</span>{{/prefilled}}
+                </p>
+            {{/canusegrade}}
+            {{#percentonly}}
+                <p class="text-muted small mb-2">{{#str}} percentonlynote, assignfeedback_proctorai {{/str}}</p>
+            {{/percentonly}}
+            {{^approved}}
+                <p class="text-muted small mb-2">{{#str}} draftnote, assignfeedback_proctorai {{/str}}</p>
+            {{/approved}}
+            <div class="table-responsive">
+                <table class="table table-sm small mb-0">
+                    <caption class="visually-hidden">{{#str}} perquestion, assignfeedback_proctorai {{/str}}</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">{{#str}} question, assignfeedback_proctorai {{/str}}</th>
+                            <th scope="col">{{#str}} marks, assignfeedback_proctorai {{/str}}</th>
+                            <th scope="col">{{#str}} details, assignfeedback_proctorai {{/str}}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#questions}}
+                            <tr class="{{#needsreview}}table-warning{{/needsreview}}">
+                                <th scope="row">{{label}}</th>
+                                <td class="text-nowrap">{{earned}} / {{max}}</td>
+                                <td>
+                                    {{#needsreview}}<div class="fw-bold">{{#str}} needsreview, assignfeedback_proctorai {{/str}}{{#reviewreason}}: {{reviewreason}}{{/reviewreason}}</div>{{/needsreview}}
+                                    {{#studentanswer}}<div><span class="text-muted">{{#str}} studentanswer, assignfeedback_proctorai {{/str}}</span> {{studentanswer}}</div>{{/studentanswer}}
+                                    {{#feedback}}<div>{{feedback}}</div>{{/feedback}}
+                                    {{#reasoning}}<div class="text-muted">{{#str}} reasoning, assignfeedback_proctorai {{/str}} {{reasoning}}</div>{{/reasoning}}
+                                    {{#confidence}}<div class="text-muted">{{#str}} confidence, assignfeedback_proctorai, {{confidence}} {{/str}}</div>{{/confidence}}
+                                </td>
+                            </tr>
+                        {{/questions}}
+                    </tbody>
+                </table>
+            </div>
+        {{/hasresult}}
+    </div>
+</div>

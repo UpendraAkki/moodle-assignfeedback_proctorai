@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/assign/feedback/proctorai/db" VERSION="20261021" COMMENT="XMLDB file for Moodle mod/assign/feedback/proctorai"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="assignfeedback_proctorai_job" COMMENT="One request to grade one submission attempt with Proctor AI">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The student whose submission is graded"/>
+        <FIELD NAME="submission" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="attempt" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The submission attempt number"/>
+        <FIELD NAME="batchid" TYPE="char" LENGTH="36" NOTNULL="false" SEQUENCE="false" COMMENT="Groups jobs queued together, for the completion notice"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued" SEQUENCE="false" COMMENT="queued, uploading, grading, done, failed, nobalance, cancelled or stale"/>
+        <FIELD NAME="origin" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="manual" SEQUENCE="false" COMMENT="What queued the job: manual, batch or auto"/>
+        <FIELD NAME="requestedby" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="idempotencykey" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false" COMMENT="Sent as Idempotency-Key so retries are never charged twice"/>
+        <FIELD NAME="submissionhash" TYPE="char" LENGTH="40" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="SHA-1 of the submitted files and text when queued"/>
+        <FIELD NAME="uploads" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of upload ids created for this job"/>
+        <FIELD NAME="requestjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The exact grade request, kept until the job ends so retries are identical"/>
+        <FIELD NAME="attempts" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="How many times the task has run this job"/>
+        <FIELD NAME="uploadretries" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="errorcode" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="errormessage" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="remoteid" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false" COMMENT="Proctor AI grading id (grd_...)"/>
+        <FIELD NAME="timeready" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Do not start before this time (upload debounce)"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecompleted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id"/>
+        <KEY NAME="submission" TYPE="foreign" FIELDS="submission" REFTABLE="assign_submission" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="idempotencykey" TYPE="unique" FIELDS="idempotencykey"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="assignuser" UNIQUE="false" FIELDS="assignment, userid"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="batchid" UNIQUE="false" FIELDS="batchid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="assignfeedback_proctorai" COMMENT="The Proctor AI result for one grade (one student attempt)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="assignment" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="jobid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="earned" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" DECIMALS="2"/>
+        <FIELD NAME="maxmarks" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" DECIMALS="2"/>
+        <FIELD NAME="percentage" TYPE="number" LENGTH="6" NOTNULL="true" DEFAULT="0" SEQUENCE="false" DECIMALS="2"/>
+        <FIELD NAME="suggestedgrade" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="The AI result on the assignment's grade scale"/>
+        <FIELD NAME="appliedgrade" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="The grade this plugin pre-filled, if any"/>
+        <FIELD NAME="needsreview" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="reviewcount" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="resultjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Per-question result from Proctor AI"/>
+        <FIELD NAME="feedbacktext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Feedback for the student, editable by the teacher"/>
+        <FIELD NAME="feedbackformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="approved" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 once a teacher has saved the grader form"/>
+        <FIELD NAME="approvedby" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timeapproved" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="assignment" TYPE="foreign" FIELDS="assignment" REFTABLE="assign" REFFIELDS="id"/>
+        <KEY NAME="grade" TYPE="foreign-unique" FIELDS="grade" REFTABLE="assign_grades" REFFIELDS="id"/>
+        <KEY NAME="approvedby" TYPE="foreign" FIELDS="approvedby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>
