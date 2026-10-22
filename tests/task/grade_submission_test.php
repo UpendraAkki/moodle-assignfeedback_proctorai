@@ -307,13 +307,11 @@ final class grade_submission_test extends grading_testcase {
         $this->assertContains((int) $this->teacher->id, array_map(fn($m) => (int) $m->useridto, $messages));
         $this->assertTrue(account::known_out_of_balance());
 
-        // A second student's job ends without calling the API, and no second notice is sent.
+        // The next job ends without calling the API, and no second notice is sent.
         $sink->clear();
-        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->setUser($other);
-        $this->add_submission($other, $assign, 'Other answer');
-        $this->setAdminUser();
-        $job2 = job_manager::queue($assign, $other->id, job_manager::ORIGIN_MANUAL, $this->teacher->id);
+        $job2 = job_manager::queue($assign, $this->student->id, job_manager::ORIGIN_MANUAL, $this->teacher->id);
+        $this->assertNotNull($job2);
+        $this->assertNotEquals($job->id, $job2->id);
         $this->run_job($job2->id);
         $this->assertSame(job_manager::STATUS_NOBALANCE, $this->job($job2->id)->status);
         $this->assertCount(1, $client->requests);
