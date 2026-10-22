@@ -8,6 +8,8 @@
 - Status: beta (0.1.0)
 - Licence: GNU GPL v3 or later
 
+> **Keep PHP patched.** On 21 October 2026 PHP fixed two critical remote-code-execution flaws ([CVE-2026-109618 and CVE-2026-109619](https://www.php.net/archive/2026.php)). Run at least PHP 8.2.35, 8.3.36, 8.4.27 or 8.5.12. PHP 8.1 has no fixed release, only source patches, so a site on 8.1 should move to 8.2 or later. This affects your whole Moodle site, not just this plugin.
+
 ## Installation
 
 1. Copy this repository to `mod/assign/feedback/proctorai` in your Moodle code (on Moodle 5.1 and later, `public/mod/assign/feedback/proctorai`), or install the ZIP from *Site administration > Plugins > Install plugins*.
