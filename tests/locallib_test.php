@@ -145,7 +145,11 @@ final class locallib_test extends grading_testcase {
      * @return \assign_feedback_proctorai
      */
     protected function setup_page_as_teacher(\assign $assign): \assign_feedback_proctorai {
-        global $PAGE;
+        global $PAGE, $OUTPUT;
+        // On Moodle 5.0+ enrolment and submission messages set up the theme on $PAGE earlier in the test,
+        // after which the course module can no longer be set. Start from a fresh page, as a new request would.
+        $PAGE = new \moodle_page();
+        $OUTPUT = new \bootstrap_renderer();
         $this->setUser($this->teacher);
         $PAGE->set_url(new \moodle_url('/mod/assign/view.php', ['id' => $assign->get_course_module()->id]));
         $PAGE->set_context($assign->get_context());
