@@ -16,7 +16,7 @@
         <FIELD NAME="origin" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="manual" SEQUENCE="false" COMMENT="What queued the job: manual, batch or auto"/>
         <FIELD NAME="requestedby" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="idempotencykey" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false" COMMENT="Sent as Idempotency-Key so retries are never charged twice"/>
-        <FIELD NAME="submissionhash" TYPE="char" LENGTH="40" NOTNULL="true" DEFAULT="" SEQUENCE="false" COMMENT="SHA-1 of the submitted files and text when queued"/>
+        <FIELD NAME="submissionhash" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false" COMMENT="SHA-1 of the submitted files and text when queued"/>
         <FIELD NAME="uploads" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON list of upload ids created for this job"/>
         <FIELD NAME="requestjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The exact grade request, kept until the job ends so retries are identical"/>
         <FIELD NAME="attempts" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="How many times the task has run this job"/>
