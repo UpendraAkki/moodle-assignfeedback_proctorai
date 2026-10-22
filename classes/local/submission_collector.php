@@ -63,8 +63,10 @@ class submission_collector {
                     continue;
                 }
                 $mimetype = self::mimetype($file);
-                if (!in_array($mimetype, $accepted, true) || $file->get_filesize() > account::max_bytes($mimetype)
-                        || $file->get_filesize() <= 0) {
+                if (
+                    !in_array($mimetype, $accepted, true) || $file->get_filesize() > account::max_bytes($mimetype)
+                        || $file->get_filesize() <= 0
+                ) {
                     $skipped[] = $file->get_filename();
                     continue;
                 }
@@ -73,7 +75,7 @@ class submission_collector {
         }
 
         // Sort for a stable order (and a stable hash): by path, then name.
-        uasort($files, function(\stored_file $a, \stored_file $b): int {
+        uasort($files, function (\stored_file $a, \stored_file $b): int {
             return strnatcasecmp($a->get_filepath() . $a->get_filename(), $b->get_filepath() . $b->get_filename());
         });
         $files = array_values($files);

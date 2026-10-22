@@ -57,22 +57,38 @@ final class backup_restore_test extends grading_testcase {
 
         $this->setAdminUser();
         $CFG->keeptempdirectoriesonbackup = 1;
-        $bc = new \backup_controller(\backup::TYPE_1COURSE, $this->course->id, \backup::FORMAT_MOODLE,
-            \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $USER->id);
+        $bc = new \backup_controller(
+            \backup::TYPE_1COURSE,
+            $this->course->id,
+            \backup::FORMAT_MOODLE,
+            \backup::INTERACTIVE_NO,
+            \backup::MODE_GENERAL,
+            $USER->id
+        );
         $bc->execute_plan();
         $backupid = $bc->get_backupid();
         $bc->destroy();
 
         $newcourseid = \restore_dbops::create_new_course('Restored', 'RESTORED', $this->course->category);
-        $rc = new \restore_controller($backupid, $newcourseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL,
-            $USER->id, \backup::TARGET_NEW_COURSE);
+        $rc = new \restore_controller(
+            $backupid,
+            $newcourseid,
+            \backup::INTERACTIVE_NO,
+            \backup::MODE_GENERAL,
+            $USER->id,
+            \backup::TARGET_NEW_COURSE
+        );
         $this->assertTrue($rc->execute_precheck());
         $rc->execute_plan();
         $rc->destroy();
 
         $newassignid = $DB->get_field('assign', 'id', ['course' => $newcourseid], MUST_EXIST);
-        $newgrade = $DB->get_record('assign_grades', ['assignment' => $newassignid, 'userid' => $this->student->id],
-            '*', MUST_EXIST);
+        $newgrade = $DB->get_record(
+            'assign_grades',
+            ['assignment' => $newassignid, 'userid' => $this->student->id],
+            '*',
+            MUST_EXIST
+        );
         $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $newgrade->id], '*', MUST_EXIST);
         $this->assertEquals($newassignid, $row->assignment);
         $this->assertEquals(7, $row->earned);

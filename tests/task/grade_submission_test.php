@@ -198,8 +198,10 @@ final class grade_submission_test extends grading_testcase {
         $this->run_job($job->id);
 
         $this->assertEquals(70.0, (float) $assign->get_user_grade($this->student->id, false)->grade);
-        $this->assertSame(1, $DB->count_records('assign_submission',
-            ['assignment' => $assign->get_instance()->id, 'userid' => $this->student->id]));
+        $this->assertSame(1, $DB->count_records(
+            'assign_submission',
+            ['assignment' => $assign->get_instance()->id, 'userid' => $this->student->id]
+        ));
         $this->assertEquals(0, $assign->get_user_submission($this->student->id, false)->attemptnumber);
     }
 
@@ -222,8 +224,11 @@ final class grade_submission_test extends grading_testcase {
         $assign = $this->create_assign();
         $this->submit_text($assign);
         $job = $this->queue($assign);
-        $this->fake_client()->respond(429, ['error' => ['code' => 'rate_limited', 'message' => 'Slow down']],
-            ['retry-after' => '45']);
+        $this->fake_client()->respond(
+            429,
+            ['error' => ['code' => 'rate_limited', 'message' => 'Slow down']],
+            ['retry-after' => '45']
+        );
         $before = count(\core\task\manager::get_adhoc_tasks(grade_submission::class));
 
         $this->run_job($job->id);
@@ -292,10 +297,14 @@ final class grade_submission_test extends grading_testcase {
         $assign = $this->create_assign();
         $this->submit_text($assign);
         $job = $this->queue($assign);
-        \cache::make('assignfeedback_proctorai', 'account')->set('account',
-            ['balance' => 1, 'pricePerSheet' => 1, 'sheetsRemaining' => 1, 'fetchedat' => time()]);
-        $client = $this->fake_client()->respond(402,
-            ['error' => ['code' => 'insufficient_balance', 'message' => 'Buy more', 'balance' => 0]]);
+        \cache::make('assignfeedback_proctorai', 'account')->set(
+            'account',
+            ['balance' => 1, 'pricePerSheet' => 1, 'sheetsRemaining' => 1, 'fetchedat' => time()]
+        );
+        $client = $this->fake_client()->respond(
+            402,
+            ['error' => ['code' => 'insufficient_balance', 'message' => 'Buy more', 'balance' => 0]]
+        );
         $sink = $this->redirectMessages();
 
         $this->run_job($job->id);

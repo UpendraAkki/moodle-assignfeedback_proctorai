@@ -27,8 +27,6 @@ use assignfeedback_proctorai\local\job_manager;
 use assignfeedback_proctorai\local\marking_key;
 use assignfeedback_proctorai\local\result_applier;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AI grading of handwritten (photo or PDF) and typed submissions, reviewed by the teacher.
  *
@@ -63,40 +61,65 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
 
         $error = (string) $this->get_config('markingkeyerror');
         if ($error !== '') {
-            $mform->addElement('static', 'assignfeedback_proctorai_keyerror', '',
-                html_writer::div(get_string('markingkeyerrorsaved', 'assignfeedback_proctorai', s($error)),
-                    'alert alert-danger'));
+            $mform->addElement(
+                'static',
+                'assignfeedback_proctorai_keyerror',
+                '',
+                html_writer::div(
+                    get_string('markingkeyerrorsaved', 'assignfeedback_proctorai', s($error)),
+                    'alert alert-danger'
+                )
+            );
             $mform->hideIf('assignfeedback_proctorai_keyerror', $enabled, 'notchecked');
         }
         if (!account::is_configured()) {
-            $mform->addElement('static', 'assignfeedback_proctorai_notconfigured', '',
-                html_writer::div(get_string('notconfigured', 'assignfeedback_proctorai'), 'alert alert-warning'));
+            $mform->addElement(
+                'static',
+                'assignfeedback_proctorai_notconfigured',
+                '',
+                html_writer::div(get_string('notconfigured', 'assignfeedback_proctorai'), 'alert alert-warning')
+            );
             $mform->hideIf('assignfeedback_proctorai_notconfigured', $enabled, 'notchecked');
         }
 
-        $mform->addElement('textarea', 'assignfeedback_proctorai_markingkey',
-            get_string('markingkey', 'assignfeedback_proctorai'), ['rows' => 12, 'cols' => 70, 'class' => 'text-monospace']);
+        $mform->addElement(
+            'textarea',
+            'assignfeedback_proctorai_markingkey',
+            get_string('markingkey', 'assignfeedback_proctorai'),
+            ['rows' => 12, 'cols' => 70, 'class' => 'text-monospace']
+        );
         $mform->setType('assignfeedback_proctorai_markingkey', PARAM_RAW);
         $mform->addHelpButton('assignfeedback_proctorai_markingkey', 'markingkey', 'assignfeedback_proctorai');
         $mform->setDefault('assignfeedback_proctorai_markingkey', (string) $this->get_config('markingkey'));
         $mform->hideIf('assignfeedback_proctorai_markingkey', $enabled, 'notchecked');
 
-        $mform->addElement('text', 'assignfeedback_proctorai_level', get_string('level', 'assignfeedback_proctorai'),
-            ['size' => 40, 'maxlength' => 80]);
+        $mform->addElement(
+            'text',
+            'assignfeedback_proctorai_level',
+            get_string('level', 'assignfeedback_proctorai'),
+            ['size' => 40, 'maxlength' => 80]
+        );
         $mform->setType('assignfeedback_proctorai_level', PARAM_TEXT);
         $mform->addHelpButton('assignfeedback_proctorai_level', 'level', 'assignfeedback_proctorai');
         $mform->setDefault('assignfeedback_proctorai_level', (string) $this->get_config('level'));
         $mform->hideIf('assignfeedback_proctorai_level', $enabled, 'notchecked');
 
-        $mform->addElement('textarea', 'assignfeedback_proctorai_instructions',
-            get_string('instructions', 'assignfeedback_proctorai'), ['rows' => 4, 'cols' => 70]);
+        $mform->addElement(
+            'textarea',
+            'assignfeedback_proctorai_instructions',
+            get_string('instructions', 'assignfeedback_proctorai'),
+            ['rows' => 4, 'cols' => 70]
+        );
         $mform->setType('assignfeedback_proctorai_instructions', PARAM_TEXT);
         $mform->addHelpButton('assignfeedback_proctorai_instructions', 'instructions', 'assignfeedback_proctorai');
         $mform->setDefault('assignfeedback_proctorai_instructions', (string) $this->get_config('instructions'));
         $mform->hideIf('assignfeedback_proctorai_instructions', $enabled, 'notchecked');
 
-        $mform->addElement('selectyesno', 'assignfeedback_proctorai_autograde',
-            get_string('autograde', 'assignfeedback_proctorai'));
+        $mform->addElement(
+            'selectyesno',
+            'assignfeedback_proctorai_autograde',
+            get_string('autograde', 'assignfeedback_proctorai')
+        );
         $mform->addHelpButton('assignfeedback_proctorai_autograde', 'autograde', 'assignfeedback_proctorai');
         $mform->setDefault('assignfeedback_proctorai_autograde', (int) $this->get_config('autograde'));
         $mform->hideIf('assignfeedback_proctorai_autograde', $enabled, 'notchecked');
@@ -197,8 +220,13 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         if (!isset($data->{self::EDITOR})) {
             $data->{self::EDITOR} = ['text' => (string) $result->feedbacktext, 'format' => (int) $result->feedbackformat];
         }
-        $mform->addElement('editor', self::EDITOR, get_string('feedbackforstudent', 'assignfeedback_proctorai'), null,
-            $this->get_editor_options());
+        $mform->addElement(
+            'editor',
+            self::EDITOR,
+            get_string('feedbackforstudent', 'assignfeedback_proctorai'),
+            null,
+            $this->get_editor_options()
+        );
         $mform->setType(self::EDITOR, PARAM_RAW);
         $mform->addHelpButton(self::EDITOR, 'feedbackforstudent', 'assignfeedback_proctorai');
         return true;
@@ -329,7 +357,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
      * @param bool $showviewlink Set to true to show a link to the full view.
      * @return string
      */
-    public function view_summary(stdClass $grade, & $showviewlink) {
+    public function view_summary(stdClass $grade, &$showviewlink) {
         $result = $this->get_result($grade->id);
         if ($this->viewer_can_grade()) {
             $job = job_manager::latest_job($this->assignment->get_instance()->id, $grade->userid);
@@ -350,8 +378,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             ];
             $text = get_string('summaryai', 'assignfeedback_proctorai', $a);
             if ($result->reviewcount > 0) {
-                $text .= ' ' . html_writer::span(get_string('summaryreview', 'assignfeedback_proctorai', $result->reviewcount),
-                    'badge bg-warning text-dark');
+                $text .= ' ' . html_writer::span(
+                    get_string('summaryreview', 'assignfeedback_proctorai', $result->reviewcount),
+                    'badge bg-warning text-dark'
+                );
             }
             if (!$result->approved) {
                 $text .= ' ' . html_writer::span(get_string('draft', 'assignfeedback_proctorai'), 'badge bg-secondary');
@@ -362,8 +392,11 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         if (!$result || !$this->is_released_to_student($result, $grade)) {
             return '';
         }
-        $text = format_text((string) $result->feedbacktext, $result->feedbackformat,
-            ['context' => $this->assignment->get_context()]);
+        $text = format_text(
+            (string) $result->feedbacktext,
+            $result->feedbackformat,
+            ['context' => $this->assignment->get_context()]
+        );
         $short = shorten_text($text, 140);
         $showviewlink = $short != $text;
         return $short;
@@ -380,8 +413,11 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         if (!$result || (!$this->viewer_can_grade() && !$this->is_released_to_student($result, $grade))) {
             return '';
         }
-        return format_text((string) $result->feedbacktext, $result->feedbackformat,
-            ['context' => $this->assignment->get_context()]);
+        return format_text(
+            (string) $result->feedbacktext,
+            $result->feedbackformat,
+            ['context' => $this->assignment->get_context()]
+        );
     }
 
     /**
@@ -575,8 +611,13 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         global $CFG;
         require_once($CFG->dirroot . '/mod/assign/renderable.php');
         $renderer = $this->assignment->get_renderer();
-        $header = new assign_header($this->assignment->get_instance(), $this->assignment->get_context(), false,
-            $this->assignment->get_course_module()->id, $title);
+        $header = new assign_header(
+            $this->assignment->get_instance(),
+            $this->assignment->get_context(),
+            false,
+            $this->assignment->get_course_module()->id,
+            $title
+        );
         return $renderer->render($header) . $body . $renderer->render_footer();
     }
 
@@ -647,8 +688,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 'action' => 'grading',
             ]))->out(false),
         ];
-        return $this->render_page(get_string('confirmtitle', 'assignfeedback_proctorai'),
-            $OUTPUT->render_from_template('assignfeedback_proctorai/confirm', $context));
+        return $this->render_page(
+            get_string('confirmtitle', 'assignfeedback_proctorai'),
+            $OUTPUT->render_from_template('assignfeedback_proctorai/confirm', $context)
+        );
     }
 
     /**
@@ -661,8 +704,12 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $users = required_param('selectedusers', PARAM_SEQUENCE);
         $userids = array_filter(array_map('intval', explode(',', $users)));
         $result = job_manager::queue_batch($this->assignment, $userids, (int) $USER->id);
-        redirect($this->page_url('status'), get_string('queuedn', 'assignfeedback_proctorai', $result['queued']), null,
-            \core\output\notification::NOTIFY_SUCCESS);
+        redirect(
+            $this->page_url('status'),
+            get_string('queuedn', 'assignfeedback_proctorai', $result['queued']),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
     }
 
     /**
@@ -730,7 +777,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 'action' => 'grading',
             ]))->out(false),
         ];
-        return $this->render_page(get_string('statuspage', 'assignfeedback_proctorai'),
-            $OUTPUT->render_from_template('assignfeedback_proctorai/status', $context));
+        return $this->render_page(
+            get_string('statuspage', 'assignfeedback_proctorai'),
+            $OUTPUT->render_from_template('assignfeedback_proctorai/status', $context)
+        );
     }
 }

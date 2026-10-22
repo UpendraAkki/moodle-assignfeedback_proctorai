@@ -100,16 +100,23 @@ class get_status extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'status' => new external_value(PARAM_ALPHA,
-                'none, queued, uploading, grading, done, failed, nobalance, cancelled or stale'),
+            'status' => new external_value(
+                PARAM_ALPHA,
+                'none, queued, uploading, grading, done, failed, nobalance, cancelled or stale'
+            ),
             'statuslabel' => new external_value(PARAM_TEXT, 'Human-readable status'),
             'errormessage' => new external_value(PARAM_TEXT, 'Why the job stopped, if it did'),
             'hasresult' => new external_value(PARAM_BOOL, 'Whether an AI result is stored for the current attempt'),
             'earned' => new external_value(PARAM_FLOAT, 'Marks earned'),
             'maxmarks' => new external_value(PARAM_FLOAT, 'Marks available'),
             'percentage' => new external_value(PARAM_FLOAT, 'Percentage'),
-            'suggestedgrade' => new external_value(PARAM_FLOAT, 'The AI result on the assignment grade scale', VALUE_DEFAULT, null,
-                NULL_ALLOWED),
+            'suggestedgrade' => new external_value(
+                PARAM_FLOAT,
+                'The AI result on the assignment grade scale',
+                VALUE_DEFAULT,
+                null,
+                NULL_ALLOWED
+            ),
             'reviewcount' => new external_value(PARAM_INT, 'Questions the AI flagged for review'),
             'timemodified' => new external_value(PARAM_INT, 'When the job last changed'),
         ]);

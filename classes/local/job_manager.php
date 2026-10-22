@@ -114,15 +114,18 @@ class job_manager {
         if (!$submission || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED) {
             return 'notsubmitted';
         }
-        $active = $DB->record_exists_select('assignfeedback_proctorai_job',
-            'assignment = :assignment AND submission = :submission AND attempt = :attempt AND status IN (:q, :u, :g)', [
+        $active = $DB->record_exists_select(
+            'assignfeedback_proctorai_job',
+            'assignment = :assignment AND submission = :submission AND attempt = :attempt AND status IN (:q, :u, :g)',
+            [
                 'assignment' => $assign->get_instance()->id,
                 'submission' => $submission->id,
                 'attempt' => $submission->attemptnumber,
                 'q' => self::STATUS_QUEUED,
                 'u' => self::STATUS_UPLOADING,
                 'g' => self::STATUS_GRADING,
-            ]);
+            ]
+        );
         if ($active) {
             return 'alreadyqueued';
         }
@@ -147,8 +150,14 @@ class job_manager {
      * @param int $delay Seconds before the job may start.
      * @return \stdClass|null The job, or null if it could not be queued.
      */
-    public static function queue(\assign $assign, int $userid, string $origin, int $requestedby = 0,
-            ?string $batchid = null, int $delay = 0): ?\stdClass {
+    public static function queue(
+        \assign $assign,
+        int $userid,
+        string $origin,
+        int $requestedby = 0,
+        ?string $batchid = null,
+        int $delay = 0
+    ): ?\stdClass {
         global $DB;
 
         if (self::assignment_blocker($assign) !== null) {
@@ -164,10 +173,12 @@ class job_manager {
         }
 
         $assignmentid = $assign->get_instance()->id;
-        $existing = $DB->get_records_select('assignfeedback_proctorai_job',
+        $existing = $DB->get_records_select(
+            'assignfeedback_proctorai_job',
             'assignment = :assignment AND submission = :submission AND attempt = :attempt',
             ['assignment' => $assignmentid, 'submission' => $submission->id, 'attempt' => $submission->attemptnumber],
-            'id DESC');
+            'id DESC'
+        );
         $last = $existing ? reset($existing) : null;
         if ($last && $last->status === self::STATUS_QUEUED && $last->timestarted === null) {
             // Not started yet: fold this request into it. This is the upload debounce.
@@ -190,9 +201,11 @@ class job_manager {
 
         if ($origin === self::ORIGIN_AUTO) {
             $cap = (int) get_config('assignfeedback_proctorai', 'autogradecap');
-            $count = $DB->count_records_select('assignfeedback_proctorai_job',
+            $count = $DB->count_records_select(
+                'assignfeedback_proctorai_job',
                 'assignment = :assignment AND userid = :userid AND origin = :origin AND status <> :stale',
-                ['assignment' => $assignmentid, 'userid' => $userid, 'origin' => self::ORIGIN_AUTO, 'stale' => self::STATUS_STALE]);
+                ['assignment' => $assignmentid, 'userid' => $userid, 'origin' => self::ORIGIN_AUTO, 'stale' => self::STATUS_STALE]
+            );
             if ($cap > 0 && $count >= $cap) {
                 return null;
             }
@@ -357,9 +370,11 @@ class job_manager {
 
         $submission = $DB->get_record('assign_submission', ['id' => $job->submission]);
         $latest = $assign->get_user_submission($job->userid, false);
-        if (!$submission || !$latest || (int) $latest->id !== (int) $submission->id
+        if (
+            !$submission || !$latest || (int) $latest->id !== (int) $submission->id
                 || (int) $submission->attemptnumber !== (int) $job->attempt
-                || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED) {
+                || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED
+        ) {
             self::finish($job, self::STATUS_STALE, 'submissionchanged', null);
             return;
         }
@@ -370,8 +385,12 @@ class job_manager {
         }
 
         if (account::known_out_of_balance()) {
-            self::finish($job, self::STATUS_NOBALANCE, 'insufficient_balance',
-                get_string('nobalance', 'assignfeedback_proctorai'));
+            self::finish(
+                $job,
+                self::STATUS_NOBALANCE,
+                'insufficient_balance',
+                get_string('nobalance', 'assignfeedback_proctorai')
+            );
             account::notify_nobalance((int) $job->requestedby);
             return;
         }
@@ -592,7 +611,8 @@ class job_manager {
         }
         $counts = $DB->get_records_sql_menu(
             'SELECT status, COUNT(1) FROM {assignfeedback_proctorai_job} WHERE batchid = :batchid GROUP BY status',
-            ['batchid' => $job->batchid]);
+            ['batchid' => $job->batchid]
+        );
         foreach (self::ACTIVE as $active) {
             if (!empty($counts[$active])) {
                 return;
@@ -616,8 +636,13 @@ class job_manager {
             'failed' => array_sum($counts) - (int) ($counts[self::STATUS_DONE] ?? 0),
             'url' => $url->out(false),
         ];
-        notifier::send('batchcomplete', $teacher, get_string('msgbatchsubject', 'assignfeedback_proctorai', $a),
-            get_string('msgbatchbody', 'assignfeedback_proctorai', $a), $url);
+        notifier::send(
+            'batchcomplete',
+            $teacher,
+            get_string('msgbatchsubject', 'assignfeedback_proctorai', $a),
+            get_string('msgbatchbody', 'assignfeedback_proctorai', $a),
+            $url
+        );
     }
 
     /**
@@ -647,8 +672,14 @@ class job_manager {
      */
     public static function latest_job(int $assignmentid, int $userid): ?\stdClass {
         global $DB;
-        $jobs = $DB->get_records('assignfeedback_proctorai_job', ['assignment' => $assignmentid, 'userid' => $userid],
-            'id DESC', '*', 0, 1);
+        $jobs = $DB->get_records(
+            'assignfeedback_proctorai_job',
+            ['assignment' => $assignmentid, 'userid' => $userid],
+            'id DESC',
+            '*',
+            0,
+            1
+        );
         return $jobs ? reset($jobs) : null;
     }
 }

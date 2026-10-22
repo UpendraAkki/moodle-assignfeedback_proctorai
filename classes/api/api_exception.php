@@ -48,8 +48,13 @@ class api_exception extends \moodle_exception {
      * @param int|null $retryafter Seconds to wait before retrying, if the API said.
      * @param array $details The full decoded error object.
      */
-    public function __construct(int $httpstatus, string $apicode, string $apimessage, ?int $retryafter = null,
-            array $details = []) {
+    public function __construct(
+        int $httpstatus,
+        string $apicode,
+        string $apimessage,
+        ?int $retryafter = null,
+        array $details = []
+    ) {
         $this->httpstatus = $httpstatus;
         $this->apicode = $apicode;
         $this->apimessage = $apimessage;

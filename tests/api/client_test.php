@@ -61,8 +61,11 @@ final class client_test extends \advanced_testcase {
      */
     public function test_grade_request_headers_and_body(): void {
         $client = new fake_client();
-        $client->respond(200, ['id' => 'grd_1', 'marks' => ['earned' => 1, 'max' => 1, 'percentage' => 100]],
-            ['idempotent-replayed' => 'true']);
+        $client->respond(
+            200,
+            ['id' => 'grd_1', 'marks' => ['earned' => 1, 'max' => 1, 'percentage' => 100]],
+            ['idempotent-replayed' => 'true']
+        );
 
         $result = $client->grade(['title' => 'T', 'studentName' => 'Sam', 'questions' => []], 'key-123');
 
@@ -110,8 +113,14 @@ final class client_test extends \advanced_testcase {
      * @param bool $transient Expected transience.
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('error_responses')]
-    public function test_error_mapping(int $status, string $body, array $headers, string $code, ?int $retryafter,
-            bool $transient): void {
+    public function test_error_mapping(
+        int $status,
+        string $body,
+        array $headers,
+        string $code,
+        ?int $retryafter,
+        bool $transient
+    ): void {
         try {
             client::parse_response(['status' => $status, 'headers' => $headers, 'body' => $body, 'error' => 'timeout']);
             $this->fail('No exception');

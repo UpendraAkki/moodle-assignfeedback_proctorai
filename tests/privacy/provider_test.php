@@ -100,8 +100,10 @@ final class provider_test extends grading_testcase {
 
         $userlist = new \core_privacy\local\request\userlist($context, 'assignfeedback_proctorai');
         provider::get_userids_from_context($userlist);
-        $this->assertEqualsCanonicalizing([(int) $this->student->id, (int) $this->teacher->id],
-            array_map('intval', $userlist->get_userids()));
+        $this->assertEqualsCanonicalizing(
+            [(int) $this->student->id, (int) $this->teacher->id],
+            array_map('intval', $userlist->get_userids())
+        );
         $this->assertTrue($DB->record_exists('assignfeedback_proctorai_job', ['userid' => $this->student->id]));
     }
 

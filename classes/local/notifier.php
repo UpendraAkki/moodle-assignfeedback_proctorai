@@ -34,8 +34,13 @@ class notifier {
      * @param \moodle_url|null $url A link to act on it.
      * @return bool Whether it was sent.
      */
-    public static function send(string $provider, \stdClass $userto, string $subject, string $body,
-            ?\moodle_url $url = null): bool {
+    public static function send(
+        string $provider,
+        \stdClass $userto,
+        string $subject,
+        string $body,
+        ?\moodle_url $url = null
+    ): bool {
         $message = new \core\message\message();
         $message->component = 'assignfeedback_proctorai';
         $message->name = $provider;

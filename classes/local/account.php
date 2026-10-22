@@ -102,11 +102,16 @@ class account {
         self::clear_cache();
         $url = new \moodle_url('/admin/settings.php', ['section' => 'assignfeedback_proctorai']);
         foreach (get_admins() as $admin) {
-            notifier::send('paused', $admin, get_string('msgpausedsubject', 'assignfeedback_proctorai'),
+            notifier::send(
+                'paused',
+                $admin,
+                get_string('msgpausedsubject', 'assignfeedback_proctorai'),
                 get_string('msgpausedbody', 'assignfeedback_proctorai', (object) [
                     'reason' => $reason,
                     'url' => $url->out(false),
-                ]), $url);
+                ]),
+                $url
+            );
         }
     }
 
@@ -251,8 +256,12 @@ class account {
             $recipients[$teacherid] = $teacher;
         }
         foreach ($recipients as $user) {
-            notifier::send('nobalance', $user, get_string('msgnobalancesubject', 'assignfeedback_proctorai'),
-                get_string('msgnobalancebody', 'assignfeedback_proctorai'));
+            notifier::send(
+                'nobalance',
+                $user,
+                get_string('msgnobalancesubject', 'assignfeedback_proctorai'),
+                get_string('msgnobalancebody', 'assignfeedback_proctorai')
+            );
         }
     }
 
@@ -273,8 +282,12 @@ class account {
         }
         set_config('lastlowbalancenotice', time(), 'assignfeedback_proctorai');
         foreach (get_admins() as $admin) {
-            notifier::send('lowbalance', $admin, get_string('msglowbalancesubject', 'assignfeedback_proctorai'),
-                get_string('msglowbalancebody', 'assignfeedback_proctorai', $sheets));
+            notifier::send(
+                'lowbalance',
+                $admin,
+                get_string('msglowbalancesubject', 'assignfeedback_proctorai'),
+                get_string('msglowbalancebody', 'assignfeedback_proctorai', $sheets)
+            );
         }
     }
 
@@ -292,8 +305,11 @@ class account {
             return $OUTPUT->notification(get_string('statusnoconsent', 'assignfeedback_proctorai'), 'warning', false);
         }
         if (self::is_paused()) {
-            return $OUTPUT->notification(get_string('statuspaused', 'assignfeedback_proctorai',
-                s((string) get_config('assignfeedback_proctorai', 'pausedreason'))), 'error', false);
+            return $OUTPUT->notification(get_string(
+                'statuspaused',
+                'assignfeedback_proctorai',
+                s((string) get_config('assignfeedback_proctorai', 'pausedreason'))
+            ), 'error', false);
         }
         try {
             $account = self::get(true, 10);

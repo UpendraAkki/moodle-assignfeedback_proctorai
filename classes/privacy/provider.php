@@ -41,10 +41,9 @@ require_once($CFG->dirroot . '/mod/assign/locallib.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements
-        \core_privacy\local\metadata\provider,
-        \mod_assign\privacy\assignfeedback_provider,
-        \mod_assign\privacy\assignfeedback_user_provider {
-
+    \core_privacy\local\metadata\provider,
+    \mod_assign\privacy\assignfeedback_provider,
+    \mod_assign\privacy\assignfeedback_user_provider {
     /**
      * Describe the data this plugin stores and sends.
      *
@@ -148,15 +147,21 @@ class provider implements
         if (!$cm) {
             return;
         }
-        $userlist->add_from_sql('requestedby',
+        $userlist->add_from_sql(
+            'requestedby',
             'SELECT requestedby FROM {assignfeedback_proctorai_job} WHERE assignment = :assignment AND requestedby > 0',
-            ['assignment' => $cm->instance]);
-        $userlist->add_from_sql('userid',
+            ['assignment' => $cm->instance]
+        );
+        $userlist->add_from_sql(
+            'userid',
             'SELECT userid FROM {assignfeedback_proctorai_job} WHERE assignment = :assignment',
-            ['assignment' => $cm->instance]);
-        $userlist->add_from_sql('approvedby',
+            ['assignment' => $cm->instance]
+        );
+        $userlist->add_from_sql(
+            'approvedby',
             'SELECT approvedby FROM {assignfeedback_proctorai} WHERE assignment = :assignment AND approvedby IS NOT NULL',
-            ['assignment' => $cm->instance]);
+            ['assignment' => $cm->instance]
+        );
     }
 
     /**

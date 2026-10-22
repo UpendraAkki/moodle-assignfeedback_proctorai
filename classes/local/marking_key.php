@@ -138,7 +138,7 @@ class marking_key {
                     $current = &$questions[$number];
                 } else {
                     if (!isset($questions[$number])) {
-                        // "3a." with no "3." line: the parent's prompt is filled in below.
+                        // A "3a." line with no "3." line: the parent's prompt is filled in below.
                         $questions[$number] = self::new_question($number, $lineno);
                     }
                     if (isset($questions[$number]['subs'][$letter])) {

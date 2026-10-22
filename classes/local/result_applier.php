@@ -206,8 +206,11 @@ class result_applier {
             $assign->update_user_flags($flags);
             $user = \core_user::get_user($grade->userid);
             if ($user) {
-                \mod_assign\event\workflow_state_updated::create_from_user($assign, $user,
-                    ASSIGN_MARKING_WORKFLOW_STATE_READYFORREVIEW)->trigger();
+                \mod_assign\event\workflow_state_updated::create_from_user(
+                    $assign,
+                    $user,
+                    ASSIGN_MARKING_WORKFLOW_STATE_READYFORREVIEW
+                )->trigger();
             }
         }
 

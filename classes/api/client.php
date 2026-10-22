@@ -98,8 +98,11 @@ class client {
             // Storage errors are XML, not the API's JSON, so they are mapped here.
             $status = $response['status'] ?: 0;
             $code = $status === 0 ? 'network_error' : 'upload_failed';
-            throw new api_exception($status >= 500 || $status === 0 ? $status : 422, $code,
-                $response['error'] ?: 'The file upload was rejected (HTTP ' . $status . ').');
+            throw new api_exception(
+                $status >= 500 || $status === 0 ? $status : 422,
+                $code,
+                $response['error'] ?: 'The file upload was rejected (HTTP ' . $status . ').'
+            );
         }
     }
 
@@ -131,8 +134,13 @@ class client {
      * @return array ['status' => int, 'headers' => array, 'body' => array].
      * @throws api_exception
      */
-    protected function call(string $method, string $path, ?array $body, array $headers = [],
-            int $timeout = self::DEFAULT_TIMEOUT): array {
+    protected function call(
+        string $method,
+        string $path,
+        ?array $body,
+        array $headers = [],
+        int $timeout = self::DEFAULT_TIMEOUT
+    ): array {
         $apikey = trim((string) get_config('assignfeedback_proctorai', 'apikey'));
         if ($apikey === '') {
             throw new api_exception(401, 'invalid_api_key', 'No API key is set.');

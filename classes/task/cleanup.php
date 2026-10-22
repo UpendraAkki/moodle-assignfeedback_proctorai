@@ -57,15 +57,23 @@ class cleanup extends \core\task\scheduled_task {
 
         [$activesql, $params] = $DB->get_in_or_equal(job_manager::ACTIVE, SQL_PARAMS_NAMED, 'st', false);
         $params['cutoff'] = $now - self::API_RETENTION;
-        $DB->set_field_select('assignfeedback_proctorai_job', 'requestjson', null,
-            "requestjson IS NOT NULL AND status $activesql AND timemodified < :cutoff", $params);
+        $DB->set_field_select(
+            'assignfeedback_proctorai_job',
+            'requestjson',
+            null,
+            "requestjson IS NOT NULL AND status $activesql AND timemodified < :cutoff",
+            $params
+        );
 
-        $stuck = $DB->get_records_select('assignfeedback_proctorai_job',
-            'status IN (:uploading, :grading) AND timemodified < :cutoff', [
+        $stuck = $DB->get_records_select(
+            'assignfeedback_proctorai_job',
+            'status IN (:uploading, :grading) AND timemodified < :cutoff',
+            [
                 'uploading' => job_manager::STATUS_UPLOADING,
                 'grading' => job_manager::STATUS_GRADING,
                 'cutoff' => $now - self::STUCK_AFTER,
-            ]);
+            ]
+        );
         foreach ($stuck as $job) {
             // Older than the API keeps idempotency records: a retry could be charged again, so start clean.
             $expired = $job->timestarted && $job->timestarted < $now - self::API_RETENTION;
