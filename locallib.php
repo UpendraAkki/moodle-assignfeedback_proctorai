@@ -608,10 +608,8 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
      * @return string
      */
     protected function render_page(string $title, string $body): string {
-        global $CFG;
-        require_once($CFG->dirroot . '/mod/assign/renderable.php');
         $renderer = $this->assignment->get_renderer();
-        $header = new assign_header(
+        $header = new \mod_assign\output\assign_header(
             $this->assignment->get_instance(),
             $this->assignment->get_context(),
             false,

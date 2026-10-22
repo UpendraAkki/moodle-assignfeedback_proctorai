@@ -24,15 +24,16 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use assignfeedback_proctorai\admin\setting_status;
 use assignfeedback_proctorai\local\account;
 
 if ($ADMIN->fulltree) {
     $callback = [account::class, 'settings_updated'];
 
-    $settings->add(new admin_setting_heading(
+    $settings->add(new setting_status(
         'assignfeedback_proctorai/statusheading',
         get_string('connectionstatus', 'assignfeedback_proctorai'),
-        account::status_html()
+        ''
     ));
 
     $settings->add(new admin_setting_configcheckbox(

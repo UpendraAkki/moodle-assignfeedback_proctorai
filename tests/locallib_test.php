@@ -110,4 +110,46 @@ final class locallib_test extends grading_testcase {
         $this->expectException(\required_capability_exception::class);
         external\get_status::execute($assign->get_instance()->id, $this->student->id);
     }
+
+    /**
+     * The cost confirmation page renders inside the assignment's layout.
+     */
+    public function test_confirm_page_renders(): void {
+        $assign = $this->create_assign();
+        $this->submit_text($assign);
+        $this->fake_client()->respond(200, ['balance' => 5, 'pricePerSheet' => 1, 'sheetsRemaining' => 5]);
+        $plugin = $this->setup_page_as_teacher($assign);
+
+        $html = $plugin->grading_batch_operation('grade', [$this->student->id]);
+
+        $this->assertStringContainsString(get_string('confirmtitle', 'assignfeedback_proctorai'), $html);
+        $this->assertStringContainsString(get_string('confirmbutton', 'assignfeedback_proctorai', 1), $html);
+    }
+
+    /**
+     * The status page renders inside the assignment's layout.
+     */
+    public function test_status_page_renders(): void {
+        $assign = $this->create_assign();
+        $plugin = $this->setup_page_as_teacher($assign);
+
+        $html = $plugin->view_page('status');
+
+        $this->assertStringContainsString(get_string('statuspage', 'assignfeedback_proctorai'), $html);
+    }
+
+    /**
+     * Log in as the teacher and set up $PAGE as mod/assign/view.php does.
+     *
+     * @param \assign $assign The assignment.
+     * @return \assign_feedback_proctorai
+     */
+    protected function setup_page_as_teacher(\assign $assign): \assign_feedback_proctorai {
+        global $PAGE;
+        $this->setUser($this->teacher);
+        $PAGE->set_url(new \moodle_url('/mod/assign/view.php', ['id' => $assign->get_course_module()->id]));
+        $PAGE->set_context($assign->get_context());
+        $PAGE->set_cm($assign->get_course_module());
+        return $assign->get_feedback_plugin_by_type('proctorai');
+    }
 }
