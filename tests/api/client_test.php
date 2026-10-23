@@ -170,4 +170,48 @@ final class client_test extends \advanced_testcase {
             $this->assertSame('No', $e->apimessage);
         }
     }
+
+    /**
+     * Extra headers from config.php go to the API but never to the presigned upload URL.
+     */
+    public function test_extra_headers_api_only(): void {
+        global $CFG;
+        $CFG->assignfeedback_proctorai_extraheaders = ['x-vercel-protection-bypass' => 'secret123'];
+        $this->setAdminUser();
+        $file = get_file_storage()->create_file_from_string([
+            'contextid' => \context_system::instance()->id, 'component' => 'assignfeedback_proctorai',
+            'filearea' => 'test', 'itemid' => 0, 'filepath' => '/', 'filename' => 'a.jpg',
+        ], 'bytes');
+        $client = new fake_client();
+        $client->respond(200, ['balance' => 1])->respond(200, ['id' => 'grd_1'])->respond(200, '');
+
+        $client->get_account();
+        $client->grade(['questions' => []], 'key-1');
+        $client->put_file(['url' => 'https://r2.example.test/upl', 'headers' => ['Content-Type' => 'image/jpeg']], $file);
+
+        $this->assertSame('secret123', $client->request_headers(0)['x-vercel-protection-bypass']);
+        $this->assertSame('secret123', $client->request_headers(1)['x-vercel-protection-bypass']);
+        $this->assertArrayNotHasKey('x-vercel-protection-bypass', $client->request_headers(2));
+    }
+
+    /**
+     * Extra headers cannot replace the client's own headers or inject another header.
+     */
+    public function test_extra_headers_are_sanitised(): void {
+        global $CFG;
+        $CFG->assignfeedback_proctorai_extraheaders = [
+            'Authorization' => 'Bearer stolen',
+            'Idempotency-Key' => 'fixed',
+            'X-Bad' => "ok\r\nX-Injected: 1",
+            'Bad Name' => 'x',
+            'X-Good' => ' fine ',
+        ];
+        $this->assertSame(['X-Good: fine'], client::extra_headers());
+
+        $CFG->assignfeedback_proctorai_extraheaders = 'X-Not-An-Array: 1';
+        $this->assertSame([], client::extra_headers());
+
+        unset($CFG->assignfeedback_proctorai_extraheaders);
+        $this->assertSame([], client::extra_headers());
+    }
 }
