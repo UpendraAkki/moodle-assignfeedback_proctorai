@@ -144,7 +144,8 @@ class client {
             $name = trim((string) $name);
             $value = trim((string) $value);
             // Header names are tokens; values must not smuggle in a second header.
-            if (!preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name) || preg_match('/[\r\n\0]/', $value)) {
+            // The RFC 9110 token characters; \x60 is the backtick.
+            if (!preg_match('/^[A-Za-z0-9!#$%&\'*+.^_\x60|~-]+$/', $name) || preg_match('/[\r\n\0]/', $value)) {
                 continue;
             }
             if (in_array(strtolower($name), $reserved, true)) {
