@@ -252,8 +252,10 @@ final class job_manager_test extends grading_testcase {
         $this->assertNull(job_manager::retry($assign, $this->job($retried->id), $this->teacher->id));
 
         // Run it out of balance, then retry all such jobs.
-        \cache::make('assignfeedback_proctorai', 'account')->set('account',
-            ['balance' => 0, 'pricePerSheet' => 1, 'sheetsRemaining' => 0, 'fetchedat' => time()]);
+        \cache::make('assignfeedback_proctorai', 'account')->set(
+            'account',
+            ['balance' => 0, 'pricePerSheet' => 1, 'sheetsRemaining' => 0, 'fetchedat' => time()]
+        );
         $sink = $this->redirectMessages();
         $this->run_job($retried->id);
         $sink->close();

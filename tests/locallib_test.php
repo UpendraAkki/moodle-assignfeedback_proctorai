@@ -134,8 +134,10 @@ final class locallib_test extends grading_testcase {
         $assign = $this->create_assign();
         $this->submit_text($assign);
         $job = local\job_manager::queue($assign, $this->student->id, local\job_manager::ORIGIN_MANUAL, $this->teacher->id);
-        \cache::make('assignfeedback_proctorai', 'account')->set('account',
-            ['balance' => 99, 'pricePerSheet' => 1, 'sheetsRemaining' => 99, 'fetchedat' => time()]);
+        \cache::make('assignfeedback_proctorai', 'account')->set(
+            'account',
+            ['balance' => 99, 'pricePerSheet' => 1, 'sheetsRemaining' => 99, 'fetchedat' => time()]
+        );
         $client = $this->fake_client()->respond(200, ['balance' => 3, 'pricePerSheet' => 1, 'sheetsRemaining' => 3]);
         $plugin = $this->setup_page_as_teacher($assign);
 
