@@ -1,5 +1,15 @@
 # Changes
 
+## 0.1.1 (2026-10-22), beta
+
+Fixes found by end-to-end testing on Moodle 4.5 and 5.0 (see `docs/e2e-report.md`).
+
+- The cost confirmation page and the status page no longer fail with "Class assign_header not found".
+- The connection status on the settings page is only checked when that page is shown. Before, every admin settings page on the site called Proctor AI, and was slow when Proctor AI was slow.
+- After a rejected key paused grading, opening the settings page checks the key again and resumes if it works, so a key that works again no longer needs to be changed and changed back.
+- The grader no longer says "result is ready" when the grading failed; it says grading stopped.
+- Clearer wording for counts ("Pages: 1", "Grade with Proctor AI (1)").
+
 ## 0.1.0 (2026-10-21), beta
 
 First release.

@@ -75,8 +75,11 @@ const poll = async(panel, assignid, userid) => {
         }
         if (status.status !== panel.dataset.status) {
             panel.dataset.status = status.status;
-            const message = await getString('resultready', 'assignfeedback_proctorai');
-            Notification.addNotification({message, type: 'info'});
+            // Only a finished job has a result; any other end state (failed, no balance, stale) says why it stopped.
+            const message = status.status === 'done'
+                ? await getString('resultready', 'assignfeedback_proctorai')
+                : await getString('resultstopped', 'assignfeedback_proctorai', status.statuslabel);
+            Notification.addNotification({message, type: status.status === 'done' ? 'info' : 'warning'});
         }
     } catch (error) {
         Notification.exception(error);

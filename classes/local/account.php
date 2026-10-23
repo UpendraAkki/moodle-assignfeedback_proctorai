@@ -121,10 +121,17 @@ class account {
      * @param string $fullname The setting's full name (unused).
      */
     public static function settings_updated(string $fullname = ''): void {
+        self::clear_cache();
+        self::resume();
+    }
+
+    /**
+     * Unpause, and requeue the jobs that the pause or missing settings stopped.
+     */
+    public static function resume(): void {
         global $DB;
         unset_config('paused', 'assignfeedback_proctorai');
         unset_config('pausedreason', 'assignfeedback_proctorai');
-        self::clear_cache();
         if (!self::is_configured()) {
             return;
         }
@@ -305,11 +312,18 @@ class account {
             return $OUTPUT->notification(get_string('statusnoconsent', 'assignfeedback_proctorai'), 'warning', false);
         }
         if (self::is_paused()) {
-            return $OUTPUT->notification(get_string(
-                'statuspaused',
-                'assignfeedback_proctorai',
-                s((string) get_config('assignfeedback_proctorai', 'pausedreason'))
-            ), 'error', false);
+            // Admin settings only call back when a value changes, so saving the same key cannot resume.
+            // Check the key again here instead: it may work now (re-enabled, or a passing error).
+            try {
+                self::refresh(10);
+            } catch (\Throwable $e) {
+                return $OUTPUT->notification(get_string(
+                    'statuspaused',
+                    'assignfeedback_proctorai',
+                    s((string) get_config('assignfeedback_proctorai', 'pausedreason'))
+                ), 'error', false);
+            }
+            self::resume();
         }
         try {
             $account = self::get(true, 10);
