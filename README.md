@@ -5,7 +5,7 @@
 > A paid Proctor AI account is required. Each graded submission is charged to the account's prepaid balance. A `pai_test_` test key returns a fixed result and is never charged.
 
 - Moodle 4.5 LTS to 5.3, PHP 8.1 or later
-- Status: beta (0.1.1)
+- Status: beta (0.2.0)
 - Licence: GNU GPL v3 or later
 
 ## Installation
@@ -18,6 +18,8 @@
    - read and tick **Allow sending student work to Proctor AI**. Nothing is sent until you do.
 
    The *Connection* line at the top of the page shows whether the key works and how many submissions the balance covers.
+
+   **Upload method:** leave it on *Direct*. Choose *Inline* only if your network blocks Proctor AI's upload storage. Inline sends photos inside the grading request, up to 4 MB in total, and does not support PDFs.
 4. Make sure cron runs. Grading happens in Moodle's background tasks (`\assignfeedback_proctorai\task\grade_submission`).
 
 ## Using it
@@ -37,17 +39,27 @@ Answer: Carbon dioxide
 
 One question per numbered line with its marks in square brackets; `Answer:` and `Options:` lines are optional; sub-questions are numbered `3a`, `3b`, and each needs marks. If the key has a mistake, the settings page shows which line, and nothing can be graded until it is fixed.
 
+You don't have to type this format: above the box, the marking key opens question by question, with fields for the question, marks, expected answer, options and parts. It writes the same text, and shows the total marks next to the assignment's maximum grade. *Edit as text* switches back to the box.
+
 Then, on the *Submissions* page:
 
 - select students and choose **Grade with Proctor AI** from the bulk actions, or use **Grade all ungraded with Proctor AI** from the actions menu. A confirmation page shows how many submissions will be graded, the cost and your balance before anything is sent;
 - or turn on **Grade automatically on submission** in the assignment settings.
 
-When a result arrives, the grader shows the AI total, the questions the AI wants you to check (highlighted), what it read from the student's answer, its reasoning and confidence, and a **Use AI grade** button. The *Proctor AI feedback for the student* box holds the AI's comments, which you can edit.
+When a result arrives, the grader shows the AI total, the questions the AI wants you to check (highlighted), what it read from the student's answer, its reasoning and confidence, and a **Use AI grade** button. You can change the mark for any question: the total and the grade field follow as you type. The *Proctor AI feedback for the student* box holds the AI's comments, which you can edit.
+
+Without marking workflow, **Apply Proctor AI marks** in the bulk actions writes the AI grade for the selected students in one go, after a confirmation page. Grades a teacher already gave are never changed.
+
+The **Proctor AI status** page (in the actions menu) shows the balance and every student's grading, with **Retry** and **Cancel**, and **Retry everything stopped by the balance** after a top-up. The assignment page shows graders a banner when the balance is low or gone, or grading is paused.
+
+With **group submissions**, each group's submission is graded once (one charge) and the result goes to every member.
 
 ### What students see
 
 - **With marking workflow:** the AI grade is pre-filled as a draft and the student is moved to *Ready for review*. This only happens for point grades, without a rubric or marking guide, where no teacher has graded yet. The gradebook stays empty and students see nothing until you release the grade.
-- **Without marking workflow:** the AI result is only a suggestion. Students see nothing until you save the grader form (which approves the feedback text). The grade is whatever you enter.
+- **Without marking workflow:** the AI result is only a suggestion. Students see nothing until you save the grader form or apply the marks, which approves the result. The grade is whatever you enter or apply.
+
+Once approved or released, students see the feedback and the marks per question.
 
 The marking key is never shown to students, including through the mobile app and web services.
 
@@ -55,8 +67,8 @@ The marking key is never shown to students, including through the mobile app and
 
 | What happened | What the plugin does |
 |---|---|
-| Proctor AI rejects the API key | Pauses AI grading site-wide and notifies administrators. Saving a new key resumes the queued gradings. If the same key works again, opening the plugin settings page checks it and resumes. |
-| The balance runs out | Stops, marks the submissions "balance ran out" and notifies administrators and the teacher (at most every 6 hours). |
+| Proctor AI rejects the API key | Pauses AI grading site-wide and notifies administrators. Submissions made while paused wait. Saving a new key resumes them and the queued gradings. If the same key works again, opening the plugin settings page checks it and resumes. The teacher gets one "finished" notice per batch, after the resume. |
+| The balance runs out | Stops, marks the submissions "balance ran out" and notifies administrators and the teacher (at most every 6 hours). The balance is checked again after 5 minutes, and on the settings and status pages, so grading resumes soon after a top-up. |
 | A page is unreadable, or there are more than 20 pages | Marks that submission as failed and shows Proctor AI's reason to the teacher. |
 | Proctor AI is busy or unreachable | Retries later with backoff, up to the *Attempts per submission* setting. Retries are never charged twice. |
 | The student changes the submission after it was queued | That grading is dropped; with automatic grading, the new version is queued. |
@@ -89,6 +101,8 @@ vendor/bin/phpunit --testsuite assignfeedback_proctorai_testsuite
 
 HTTP is mocked: `\curl::mock_response()` for successful calls, and `tests/fake_client.php` (registered through `\core\di`) for error statuses and headers that the curl mock cannot fake. CI runs [moodle-plugin-ci](https://github.com/moodlehq/moodle-plugin-ci) on Moodle 4.5, 5.0 and 5.3.
 
+Behat features (`tests/behat`) run against a fake API, `tests/fixtures/fakeapi.php`, which the Behat test site serves itself, so CI never uses the network. The fixture refuses to run outside a Behat site. In CI the Behat run also saves the screenshots in `pix/screenshots`, uploaded as a build artifact.
+
 After changing `amd/src`, rebuild with `grunt amd` from the Moodle root.
 
 ### Staging
@@ -104,6 +118,23 @@ $CFG->assignfeedback_proctorai_extraheaders = [
 ```
 
 These headers are sent only to the API URL, never to the presigned upload URLs, and they cannot replace the plugin's own `Authorization`, `Content-Type`, `Accept` or `Idempotency-Key` headers. Treat the value as a secret: keep it out of version control and remove it on production sites.
+
+## Moodle plugins directory submission
+
+What the [plugins directory](https://moodledev.io/general/community/plugincontribution/checklist) asks for, and where it is:
+
+- [x] Frankenstyle name `assignfeedback_proctorai`, GPL v3 or later licence (`LICENSE`), GPL header and `@package` in every file.
+- [x] `version.php` with `requires` 4.5, `supported` [405, 503], maturity and release.
+- [x] Public source repository and issue tracker: <https://github.com/UpendraAkki/moodle-assignfeedback_proctorai> and its Issues.
+- [x] README with installation, use, privacy, and a clear note that a paid Proctor AI account is needed.
+- [x] Privacy API, including the external location for data sent to Proctor AI.
+- [x] No data sent until the administrator consents; capabilities for sending data carry `RISK_PERSONAL`.
+- [x] Backup and restore, PHPUnit and Behat tests, moodle-plugin-ci passing on Moodle 4.5, 5.0 and 5.3 (phpcs and phpdoc with no warnings, savepoints, mustache, grunt, PHPUnit, Behat).
+- [x] Icon (`pix/icon.svg`, `pix/monologo.svg`) and screenshots (`pix/screenshots`): settings, marking-key editor, grader panel, status page, student view.
+- [ ] A 512×512 logo to upload with the listing. The directory takes it separately; it is not in the repository.
+- [ ] A reviewer test key (`pai_test_`) to give the plugins team in the approval issue, never in the repository.
+- [ ] Tag the release (`v0.2.0`) and upload the ZIP. Build it with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
+- [ ] Listing text: short description, the paid account requirement, and links to the privacy policy and terms on agent.proctorai.io.
 
 ## Licence
 

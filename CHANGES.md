@@ -1,5 +1,24 @@
 # Changes
 
+## 0.2.0 (2026-10-23), beta
+
+New:
+
+- **Marking-key editor.** The marking key can be edited question by question, with fields for the question, marks, expected answer, options and parts. It reads and writes the same text, and shows the total marks against the assignment's maximum grade.
+- **Marks per question in the grader.** A teacher can change any question's mark; the total and the grade field update as they type. Once a teacher approves (or, with marking workflow, releases) the result, students see the marks per question with the feedback.
+- **Apply Proctor AI marks.** Without marking workflow, a bulk action writes the AI grade for the selected students after a confirmation page. Grades a teacher gave are left alone.
+- **Status page.** Shows the current balance. Each student has **Retry** and **Cancel**, and **Retry everything stopped by the balance** re-queues after a top-up. Graders see a banner on the assignment page when the balance is low or gone, or grading is paused.
+- **Group submissions.** Graded once per group (one charge); the result goes to every member.
+- **Upload method setting.** *Direct* (the default) uses presigned uploads. *Inline* sends photos inside the grading request, up to 4 MB, for sites that block the upload storage.
+- **Staging headers.** `$CFG->assignfeedback_proctorai_extraheaders` (config.php only) adds headers for a staging server behind an access gate.
+- Behat features against a fake API served by the test site, plugin icon, screenshots, and a plugins-directory checklist in the README.
+
+Fixed:
+
+- Submissions made while grading was paused are now graded after the resume, instead of being skipped.
+- The "grading finished" notice is sent once per batch. Before, a batch that hit a rejected key sent it twice.
+- After running out of balance, the balance is checked again after 5 minutes and whenever the settings or status page is opened, so grading resumes soon after a top-up.
+
 ## 0.1.1 (2026-10-22), beta
 
 Fixes found by end-to-end testing on Moodle 4.5 and 5.0 (see `docs/e2e-report.md`).

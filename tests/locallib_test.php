@@ -71,15 +71,16 @@ final class locallib_test extends grading_testcase {
         $assign = $this->create_assign();
         $plugin = $assign->get_feedback_plugin_by_type('proctorai');
 
+        $keys = fn() => array_map(fn($op) => $op->key, $plugin->get_grading_batch_operation_details());
+
         $this->setUser($this->teacher);
-        $operations = $plugin->get_grading_batch_operation_details();
-        $this->assertCount(1, $operations);
-        $this->assertSame('grade', $operations[0]->key);
+        $this->assertSame(['grade', 'apply'], $keys());
         $this->assertArrayHasKey('gradeall', $plugin->get_grading_actions());
 
+        // A non-editing teacher may apply results (no cost) but not send work to Proctor AI.
         $nonediting = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
         $this->setUser($nonediting);
-        $this->assertSame([], $plugin->get_grading_batch_operation_details());
+        $this->assertSame(['apply'], $keys());
         $this->assertArrayNotHasKey('gradeall', $plugin->get_grading_actions());
         $this->assertArrayHasKey('status', $plugin->get_grading_actions());
     }
@@ -127,15 +128,26 @@ final class locallib_test extends grading_testcase {
     }
 
     /**
-     * The status page renders inside the assignment's layout.
+     * The status page renders inside the assignment's layout, with a fresh balance and the job actions.
      */
     public function test_status_page_renders(): void {
         $assign = $this->create_assign();
+        $this->submit_text($assign);
+        $job = local\job_manager::queue($assign, $this->student->id, local\job_manager::ORIGIN_MANUAL, $this->teacher->id);
+        \cache::make('assignfeedback_proctorai', 'account')->set('account',
+            ['balance' => 99, 'pricePerSheet' => 1, 'sheetsRemaining' => 99, 'fetchedat' => time()]);
+        $client = $this->fake_client()->respond(200, ['balance' => 3, 'pricePerSheet' => 1, 'sheetsRemaining' => 3]);
         $plugin = $this->setup_page_as_teacher($assign);
 
         $html = $plugin->view_page('status');
 
         $this->assertStringContainsString(get_string('statuspage', 'assignfeedback_proctorai'), $html);
+        // The balance was fetched, not taken from the cache.
+        $this->assertCount(1, $client->requests);
+        $this->assertStringContainsString(get_string('sheetsn', 'assignfeedback_proctorai', 3), $html);
+        // The queued job can be cancelled from here.
+        $this->assertStringContainsString('name="jobid" value="' . $job->id . '"', $html);
+        $this->assertStringContainsString('value="cancel"', $html);
     }
 
     /**

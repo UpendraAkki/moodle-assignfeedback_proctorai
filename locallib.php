@@ -455,15 +455,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         if (!$result || !$this->is_released_to_student($result, $grade)) {
             return '';
         }
-        $text = format_text(
-            (string) $result->feedbacktext,
-            $result->feedbackformat,
-            ['context' => $this->assignment->get_context()]
-        );
-        $short = shorten_text($text, 140);
-        // The full view also has the marks per question.
-        $showviewlink = $short != $text || (bool) result_applier::student_rows($result);
-        return $short;
+        // Students get the whole feedback and the marks per question here; there is nothing more to open.
+        $showviewlink = false;
+        return $this->view($grade);
     }
 
     /**
@@ -678,6 +672,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             case 'queue':
                 $this->process_queue();
                 return '';
+            case 'applyconfirm':
+                $users = optional_param('selectedusers', '', PARAM_SEQUENCE);
+                return $this->view_apply_confirm(array_filter(array_map('intval', explode(',', $users))));
             case 'apply':
                 $this->process_apply();
                 return '';

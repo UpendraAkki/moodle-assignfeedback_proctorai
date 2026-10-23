@@ -116,8 +116,9 @@ abstract class grading_testcase extends \advanced_testcase {
      *
      * @param \assign $assign The assignment.
      * @param string $filename The file name.
+     * @param string|null $content The bytes; a few fake JPEG bytes by default.
      */
-    protected function add_file(\assign $assign, string $filename = 'page1.jpg'): void {
+    protected function add_file(\assign $assign, string $filename = 'page1.jpg', ?string $content = null): void {
         $submission = $assign->get_user_submission($this->student->id, true);
         get_file_storage()->create_file_from_string([
             'contextid' => $assign->get_context()->id,
@@ -126,7 +127,7 @@ abstract class grading_testcase extends \advanced_testcase {
             'itemid' => $submission->id,
             'filepath' => '/',
             'filename' => $filename,
-        ], "\xFF\xD8\xFF\xE0 fake jpeg bytes");
+        ], $content ?? "\xFF\xD8\xFF\xE0 fake jpeg bytes");
     }
 
     /**
