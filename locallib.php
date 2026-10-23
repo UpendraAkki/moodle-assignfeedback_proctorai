@@ -42,6 +42,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     /** @var string The editor element in the grader form. */
     const EDITOR = 'assignfeedbackproctorai_editor';
 
+    /** @var string The hidden grader form element holding per-question marks as JSON. */
+    const MARKS = 'assignfeedbackproctorai_marks';
+
     /**
      * Plugin name.
      *
@@ -54,9 +57,13 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     /**
      * Add the per-assignment settings: marking key, level, instructions and auto-grading.
      *
+     * The marking key stays a plain textarea, which is what is saved and validated. The
+     * structured editor (AMD) reads and writes the same text, and shows the total marks.
+     *
      * @param MoodleQuickForm $mform The assignment settings form.
      */
     public function get_settings(MoodleQuickForm $mform) {
+        global $PAGE;
         $enabled = 'assignfeedback_proctorai_enabled';
 
         $error = (string) $this->get_config('markingkeyerror');
@@ -92,6 +99,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $mform->addHelpButton('assignfeedback_proctorai_markingkey', 'markingkey', 'assignfeedback_proctorai');
         $mform->setDefault('assignfeedback_proctorai_markingkey', (string) $this->get_config('markingkey'));
         $mform->hideIf('assignfeedback_proctorai_markingkey', $enabled, 'notchecked');
+        $PAGE->requires->js_call_amd('assignfeedback_proctorai/markingkey_editor', 'init', [[
+            'textareaid' => 'id_assignfeedback_proctorai_markingkey',
+            'gradefield' => 'grade[modgrade_point]',
+        ]]);
 
         $mform->addElement(
             'text',
@@ -156,10 +167,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
-     * Whether a student may see this result's feedback text.
+     * Whether a student may see this result's feedback and marks.
      *
-     * Without marking workflow, only once a teacher has saved the grader form. With marking workflow,
-     * mod_assign itself hides feedback until release, and release counts as approval.
+     * Without marking workflow, only once a teacher has saved the grader form or applied the marks.
+     * With marking workflow, mod_assign itself hides feedback until release, and release counts as approval.
      *
      * @param stdClass $result The assignfeedback_proctorai record.
      * @param stdClass $grade The assign_grades record.
@@ -185,7 +196,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
-     * Add the AI panel and the feedback editor to the grader form.
+     * Add the AI panel, the per-question marks and the feedback editor to the grader form.
      *
      * @param stdClass|null $grade The grade, or null.
      * @param MoodleQuickForm $mform The grader form.
@@ -199,7 +210,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $context = $this->assignment->get_context();
         $result = $grade ? $this->get_result($grade->id) : false;
         $instance = $this->assignment->get_instance();
-        $job = job_manager::latest_job($instance->id, $userid);
+        $job = job_manager::latest_job_for($this->assignment, (int) $userid);
         $added = false;
 
         if (has_capability('assignfeedback/proctorai:viewdetails', $context)) {
@@ -211,12 +222,19 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 'assignid' => (int) $instance->id,
                 'userid' => (int) $userid,
                 'polling' => $job && in_array($job->status, job_manager::ACTIVE, true),
+                'marksfield' => self::MARKS,
+                'earned' => $result ? (float) $result->earned : 0.0,
+                'maxmarks' => $result ? (float) $result->maxmarks : 0.0,
+                'maxgrade' => !empty($panel['canusegrade']) ? (float) $instance->grade : 0.0,
             ]]);
         }
 
         if (!$result) {
             return $added;
         }
+        $mform->addElement('hidden', self::MARKS, json_encode($this->current_marks($result)));
+        $mform->setType(self::MARKS, PARAM_RAW);
+
         if (!isset($data->{self::EDITOR})) {
             $data->{self::EDITOR} = ['text' => (string) $result->feedbacktext, 'format' => (int) $result->feedbackformat];
         }
@@ -242,6 +260,17 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
+     * The marks per question as they stand (teacher's or AI's), by question index.
+     *
+     * @param stdClass $result The stored result.
+     * @return float[]
+     */
+    protected function current_marks(stdClass $result): array {
+        $stored = json_decode((string) $result->resultjson, true) ?: [];
+        return array_map([result_applier::class, 'effective_mark'], (array) ($stored['questions'] ?? []));
+    }
+
+    /**
      * Template context for the grader panel.
      *
      * @param stdClass|null $result The stored result.
@@ -264,8 +293,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             return $context;
         }
 
+        $editable = $this->viewer_can_grade();
         $stored = json_decode((string) $result->resultjson, true) ?: [];
-        foreach ((array) ($stored['questions'] ?? []) as $q) {
+        foreach ((array) ($stored['questions'] ?? []) as $index => $q) {
             $label = trim((string) ($q['label'] ?? ''));
             if ($label === '') {
                 $label = $q['questionId'] . (isset($q['subQuestionId']) ? $q['subQuestionId'] : '');
@@ -275,10 +305,17 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 $value = (float) $confidence;
                 $confidence = format_float($value <= 1 ? $value * 100 : $value, 0) . '%';
             }
+            $mark = result_applier::effective_mark($q);
             $context['questions'][] = [
+                'index' => $index,
                 'label' => $label,
-                'earned' => format_float((float) $q['earned'], 2, true, true),
+                'earned' => format_float($mark, 2, true, true),
+                'markraw' => $mark,
                 'max' => format_float((float) $q['max'], 2, true, true),
+                'maxraw' => (float) $q['max'],
+                'aiearned' => format_float((float) $q['earned'], 2, true, true),
+                'edited' => isset($q['teacherEarned']),
+                'editable' => $editable,
                 'feedback' => (string) ($q['feedback'] ?? ''),
                 'studentanswer' => (string) ($q['studentAnswer'] ?? ''),
                 'reasoning' => (string) ($q['reasoning'] ?? ''),
@@ -304,12 +341,27 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             'prefilled' => $result->appliedgrade !== null,
             'approved' => !empty($result->approved),
             'pagecount' => (int) ($stored['pageCount'] ?? 0),
+            'editable' => $editable,
         ];
         return $context;
     }
 
     /**
-     * Whether the teacher changed the AI feedback, or is saving an unapproved result.
+     * The per-question marks posted with the grader form, by question index.
+     *
+     * @param stdClass $data The grader form data.
+     * @return array|null Null when the form had no marks field.
+     */
+    protected function posted_marks(stdClass $data): ?array {
+        if (!isset($data->{self::MARKS}) || $data->{self::MARKS} === '') {
+            return null;
+        }
+        $marks = json_decode((string) $data->{self::MARKS}, true);
+        return is_array($marks) ? $marks : null;
+    }
+
+    /**
+     * Whether the teacher changed the AI feedback or marks, or is saving an unapproved result.
      *
      * Saving the grader form approves the result, so an unapproved result always counts as modified.
      *
@@ -325,11 +377,18 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         if (empty($result->approved)) {
             return true;
         }
+        $marks = $this->posted_marks($data);
+        if ($marks !== null) {
+            $copy = clone $result;
+            if (result_applier::set_teacher_marks($this->assignment, $copy, $marks)) {
+                return true;
+            }
+        }
         return trim((string) $data->{self::EDITOR}['text']) !== trim((string) $result->feedbacktext);
     }
 
     /**
-     * Save the teacher's edits and mark the result approved.
+     * Save the teacher's edits (feedback text and per-question marks) and mark the result approved.
      *
      * @param stdClass $grade The grade.
      * @param stdClass $data The grader form data.
@@ -340,6 +399,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $result = $this->get_result($grade->id);
         if (!$result || !isset($data->{self::EDITOR}['text'])) {
             return true;
+        }
+        $marks = $this->posted_marks($data);
+        if ($marks !== null) {
+            result_applier::set_teacher_marks($this->assignment, $result, $marks);
         }
         $result->feedbacktext = clean_text((string) $data->{self::EDITOR}['text'], FORMAT_HTML);
         $result->feedbackformat = (int) ($data->{self::EDITOR}['format'] ?? FORMAT_HTML);
@@ -360,7 +423,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     public function view_summary(stdClass $grade, &$showviewlink) {
         $result = $this->get_result($grade->id);
         if ($this->viewer_can_grade()) {
-            $job = job_manager::latest_job($this->assignment->get_instance()->id, $grade->userid);
+            $job = job_manager::latest_job_for($this->assignment, (int) $grade->userid);
             if ($job && $job->status !== job_manager::STATUS_DONE) {
                 $text = get_string('status_' . $job->status, 'assignfeedback_proctorai');
                 if ($job->errormessage !== null && $job->status !== job_manager::STATUS_QUEUED) {
@@ -398,26 +461,37 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             ['context' => $this->assignment->get_context()]
         );
         $short = shorten_text($text, 140);
-        $showviewlink = $short != $text;
+        // The full view also has the marks per question.
+        $showviewlink = $short != $text || (bool) result_applier::student_rows($result);
         return $short;
     }
 
     /**
-     * Full view of the feedback text.
+     * Full view: the feedback text and, once approved, the marks per question.
      *
      * @param stdClass $grade The grade.
      * @return string
      */
     public function view(stdClass $grade) {
+        global $OUTPUT;
         $result = $this->get_result($grade->id);
-        if (!$result || (!$this->viewer_can_grade() && !$this->is_released_to_student($result, $grade))) {
+        if (!$result) {
             return '';
         }
-        return format_text(
+        $released = $this->is_released_to_student($result, $grade);
+        if (!$this->viewer_can_grade() && !$released) {
+            return '';
+        }
+        $html = format_text(
             (string) $result->feedbacktext,
             $result->feedbackformat,
             ['context' => $this->assignment->get_context()]
         );
+        $rows = result_applier::student_rows($result);
+        if ($released && $rows) {
+            $html .= $OUTPUT->render_from_template('assignfeedback_proctorai/student_marks', ['rows' => $rows]);
+        }
+        return $html;
     }
 
     /**
@@ -428,7 +502,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
      */
     public function is_empty(stdClass $grade) {
         $result = $this->get_result($grade->id);
-        if (!$result || trim(strip_tags((string) $result->feedbacktext)) === '') {
+        if (!$result) {
+            return true;
+        }
+        if (trim(strip_tags((string) $result->feedbacktext)) === '' && !result_applier::student_rows($result)) {
             return true;
         }
         if ($this->viewer_can_grade()) {
@@ -473,6 +550,44 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
+     * A banner for graders on the assignment page: paused, out of balance, or low balance.
+     *
+     * Only the cached balance is read, so viewing the assignment never waits for Proctor AI.
+     *
+     * @return string
+     */
+    public function view_header() {
+        global $OUTPUT;
+        if (!$this->viewer_can_grade() || !account::is_configured()) {
+            return '';
+        }
+        $link = html_writer::link(
+            $this->page_url('status'),
+            get_string('statuspage', 'assignfeedback_proctorai')
+        );
+        if (account::is_paused()) {
+            return $OUTPUT->notification(get_string('paused', 'assignfeedback_proctorai') . ' ' . $link, 'error', false);
+        }
+        $account = account::get(false);
+        if (!$account || !isset($account['sheetsRemaining'])) {
+            return '';
+        }
+        $sheets = (int) $account['sheetsRemaining'];
+        if ($sheets < 1) {
+            return $OUTPUT->notification(get_string('bannernobalance', 'assignfeedback_proctorai') . ' ' . $link, 'error', false);
+        }
+        $threshold = (int) get_config('assignfeedback_proctorai', 'lowbalance');
+        if ($threshold > 0 && $sheets < $threshold) {
+            return $OUTPUT->notification(
+                get_string('bannerlowbalance', 'assignfeedback_proctorai', $sheets) . ' ' . $link,
+                'warning',
+                false
+            );
+        }
+        return '';
+    }
+
+    /**
      * Whether the current user may queue gradings here.
      *
      * @return bool
@@ -483,38 +598,51 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
-     * "Grade with Proctor AI" in the grading table's bulk actions (Moodle 4.5 API).
+     * Bulk actions on the grading table (Moodle 4.5 API): "Grade with Proctor AI", and, without
+     * marking workflow, "Apply Proctor AI marks".
      *
      * @return array
      */
     public function get_grading_batch_operation_details() {
         global $OUTPUT;
-        if (!$this->can_request()) {
-            return [];
-        }
-        return [
-            (object) [
+        $operations = [];
+        if ($this->can_request()) {
+            $operations[] = (object) [
                 'key' => 'grade',
                 'label' => get_string('batchgrade', 'assignfeedback_proctorai'),
                 'icon' => $OUTPUT->pix_icon('i/grades', ''),
                 'confirmationtitle' => get_string('batchgrade', 'assignfeedback_proctorai'),
                 'confirmationquestion' => get_string('batchgradeconfirm', 'assignfeedback_proctorai'),
-            ],
-        ];
+            ];
+        }
+        if ($this->viewer_can_grade() && !$this->assignment->get_instance()->markingworkflow) {
+            $operations[] = (object) [
+                'key' => 'apply',
+                'label' => get_string('batchapply', 'assignfeedback_proctorai'),
+                'icon' => $OUTPUT->pix_icon('i/checked', ''),
+                'confirmationtitle' => get_string('batchapply', 'assignfeedback_proctorai'),
+                'confirmationquestion' => get_string('batchapplyconfirm', 'assignfeedback_proctorai'),
+            ];
+        }
+        return $operations;
     }
 
     /**
-     * Show the cost confirmation for the selected students.
+     * Show the confirmation page for a bulk action on the selected students.
      *
      * @param string $action The batch operation key.
      * @param array $users The selected user ids.
      * @return string
      */
     public function grading_batch_operation($action, $users) {
-        if ($action !== 'grade') {
-            return '';
+        $users = array_map('intval', $users);
+        if ($action === 'grade') {
+            return $this->view_confirm($users);
         }
-        return $this->view_confirm(array_map('intval', $users));
+        if ($action === 'apply') {
+            return $this->view_apply_confirm($users);
+        }
+        return '';
     }
 
     /**
@@ -536,7 +664,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     /**
      * Pages reached through view.php?action=viewpluginpage.
      *
-     * @param string $action gradeall, confirm, queue or status.
+     * @param string $action gradeall, confirm, queue, apply, status, jobaction or retrynobalance.
      * @return string
      */
     public function view_page($action) {
@@ -550,23 +678,33 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             case 'queue':
                 $this->process_queue();
                 return '';
+            case 'apply':
+                $this->process_apply();
+                return '';
             case 'status':
                 return $this->view_status();
+            case 'jobaction':
+                $this->process_job_action();
+                return '';
+            case 'retrynobalance':
+                $this->process_retry_nobalance();
+                return '';
         }
         return '';
     }
 
     /**
-     * Students with a submission and no grade yet.
+     * Students with a submission and no grade yet. With team submissions, one member per group.
      *
      * @return int[]
      */
     protected function ungraded_userids(): array {
         $currentgroup = groups_get_activity_group($this->assignment->get_course_module(), true);
         $userids = [];
+        $seen = [];
         foreach (array_keys($this->assignment->list_participants($currentgroup, true)) as $userid) {
-            $submission = $this->assignment->get_user_submission($userid, false);
-            if (!$submission || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED) {
+            $submission = job_manager::submission_for($this->assignment, (int) $userid);
+            if (!$submission || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED || isset($seen[$submission->id])) {
                 continue;
             }
             $grade = $this->assignment->get_user_grade($userid, false);
@@ -578,6 +716,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 // A teacher has graded this attempt.
                 continue;
             }
+            $seen[$submission->id] = true;
             $userids[] = (int) $userid;
         }
         return $userids;
@@ -601,6 +740,18 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
+     * The grading page URL.
+     *
+     * @return moodle_url
+     */
+    protected function grading_url(): moodle_url {
+        return new moodle_url('/mod/assign/view.php', [
+            'id' => $this->assignment->get_course_module()->id,
+            'action' => 'grading',
+        ]);
+    }
+
+    /**
      * Render a whole page in the assignment's layout.
      *
      * @param string $title The heading.
@@ -620,6 +771,20 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
+     * Hidden fields that bring a POST back to one of this plugin's pages.
+     *
+     * @param string $action The page.
+     * @return array For the template's "hidden" list.
+     */
+    protected function hidden_fields(string $action): array {
+        $fields = [];
+        foreach ($this->page_url($action)->params() + ['sesskey' => sesskey()] as $name => $value) {
+            $fields[] = ['name' => $name, 'value' => $value];
+        }
+        return $fields;
+    }
+
+    /**
      * The confirmation page: who will be graded and what it costs, before anything is queued.
      *
      * @param int[] $userids The students asked for.
@@ -633,14 +798,9 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $eligible = [];
         $skipped = [];
         if ($blocker === null) {
-            foreach ($userids as $userid) {
-                $reason = job_manager::user_blocker($this->assignment, $userid);
-                if ($reason === null) {
-                    $eligible[] = $userid;
-                } else {
-                    $skipped[$reason] = ($skipped[$reason] ?? 0) + 1;
-                }
-            }
+            $sorted = job_manager::eligible($this->assignment, $userids);
+            $eligible = $sorted['eligible'];
+            $skipped = $sorted['skipped'];
         }
 
         $account = null;
@@ -670,6 +830,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             'requested' => count($userids),
             'skipped' => $reasons,
             'hasskipped' => (bool) $reasons,
+            'team' => !empty($this->assignment->get_instance()->teamsubmission),
             'price' => format_float($price, 2, true, true),
             'cost' => format_float($cost, 2, true, true),
             'balance' => format_float($balance, 2, true, true),
@@ -681,10 +842,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             'cmid' => $this->assignment->get_course_module()->id,
             'selectedusers' => implode(',', $eligible),
             'sesskey' => sesskey(),
-            'cancelurl' => (new moodle_url('/mod/assign/view.php', [
-                'id' => $this->assignment->get_course_module()->id,
-                'action' => 'grading',
-            ]))->out(false),
+            'cancelurl' => $this->grading_url()->out(false),
         ];
         return $this->render_page(
             get_string('confirmtitle', 'assignfeedback_proctorai'),
@@ -711,36 +869,146 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
-     * The status page: every student's latest job and result.
+     * Confirm "Apply Proctor AI marks": whose grade will be written, and who is skipped and why.
+     *
+     * @param int[] $userids The students asked for.
+     * @return string
+     */
+    protected function view_apply_confirm(array $userids): string {
+        global $OUTPUT;
+        $eligible = [];
+        $skipped = [];
+        foreach (array_unique($userids) as $userid) {
+            $reason = result_applier::apply_blocker($this->assignment, $userid);
+            if ($reason === null) {
+                $eligible[] = $userid;
+            } else {
+                $skipped[$reason] = ($skipped[$reason] ?? 0) + 1;
+            }
+        }
+        $reasons = [];
+        foreach ($skipped as $reason => $n) {
+            $reasons[] = ['reason' => get_string('applyskip_' . $reason, 'assignfeedback_proctorai'), 'count' => $n];
+        }
+        $hidden = $this->hidden_fields('apply');
+        $hidden[] = ['name' => 'selectedusers', 'value' => implode(',', $eligible)];
+        $context = [
+            'count' => count($eligible),
+            'requested' => count(array_unique($userids)),
+            'skipped' => $reasons,
+            'hasskipped' => (bool) $reasons,
+            'canapply' => (bool) $eligible,
+            'actionurl' => (new moodle_url('/mod/assign/view.php'))->out(false),
+            'hidden' => $hidden,
+            'cancelurl' => $this->grading_url()->out(false),
+        ];
+        return $this->render_page(
+            get_string('batchapply', 'assignfeedback_proctorai'),
+            $OUTPUT->render_from_template('assignfeedback_proctorai/apply_confirm', $context)
+        );
+    }
+
+    /**
+     * Write the confirmed students' AI grades, then go back to the grading table.
+     */
+    protected function process_apply(): void {
+        require_sesskey();
+        if ($this->assignment->get_instance()->markingworkflow) {
+            throw new \moodle_exception('applyworkflow', 'assignfeedback_proctorai');
+        }
+        $users = required_param('selectedusers', PARAM_SEQUENCE);
+        $applied = 0;
+        foreach (array_unique(array_filter(array_map('intval', explode(',', $users)))) as $userid) {
+            if (result_applier::apply_to_grade($this->assignment, $userid) === 'applied') {
+                $applied++;
+            }
+        }
+        redirect(
+            $this->grading_url(),
+            get_string('appliedn', 'assignfeedback_proctorai', $applied),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    }
+
+    /**
+     * Retry or cancel one job from the status page.
+     */
+    protected function process_job_action(): void {
+        global $DB, $USER;
+        require_sesskey();
+        require_capability('assignfeedback/proctorai:requestgrading', $this->assignment->get_context());
+        $jobid = required_param('jobid', PARAM_INT);
+        $do = required_param('do', PARAM_ALPHA);
+        $job = $DB->get_record(
+            'assignfeedback_proctorai_job',
+            ['id' => $jobid, 'assignment' => $this->assignment->get_instance()->id],
+            '*',
+            MUST_EXIST
+        );
+        if ($do === 'cancel') {
+            $ok = job_manager::cancel($job);
+            $message = get_string($ok ? 'jobcancelled' : 'jobnotcancelled', 'assignfeedback_proctorai');
+        } else {
+            $ok = (bool) job_manager::retry($this->assignment, $job, (int) $USER->id);
+            $message = get_string($ok ? 'jobretried' : 'jobnotretried', 'assignfeedback_proctorai');
+        }
+        redirect(
+            $this->page_url('status'),
+            $message,
+            null,
+            $ok ? \core\output\notification::NOTIFY_SUCCESS : \core\output\notification::NOTIFY_WARNING
+        );
+    }
+
+    /**
+     * Queue again every student who was stopped by the balance running out.
+     */
+    protected function process_retry_nobalance(): void {
+        global $USER;
+        require_sesskey();
+        require_capability('assignfeedback/proctorai:requestgrading', $this->assignment->get_context());
+        $result = job_manager::retry_nobalance($this->assignment, (int) $USER->id);
+        redirect(
+            $this->page_url('status'),
+            get_string('queuedn', 'assignfeedback_proctorai', $result['queued']),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    }
+
+    /**
+     * The status page: the balance, and every student's latest job and result, with retry and cancel.
      *
      * @return string
      */
     protected function view_status(): string {
-        global $DB, $OUTPUT;
-        require_capability('assignfeedback/proctorai:viewdetails', $this->assignment->get_context());
+        global $OUTPUT;
+        $context = $this->assignment->get_context();
+        require_capability('assignfeedback/proctorai:viewdetails', $context);
 
-        $instance = $this->assignment->get_instance();
+        $canrequest = $this->can_request();
         $currentgroup = groups_get_activity_group($this->assignment->get_course_module(), true);
         $participants = $this->assignment->list_participants($currentgroup, false);
-        $jobs = $DB->get_records('assignfeedback_proctorai_job', ['assignment' => $instance->id], 'id ASC');
-        $latest = [];
-        foreach ($jobs as $job) {
-            $latest[$job->userid] = $job;
-        }
         $counts = [];
         $rows = [];
+        $hasnobalance = false;
         foreach ($participants as $user) {
-            $job = $latest[$user->id] ?? null;
+            $job = job_manager::latest_job_for($this->assignment, (int) $user->id);
             $status = $job ? $job->status : 'none';
             $counts[$status] = ($counts[$status] ?? 0) + 1;
             if (!$job) {
                 continue;
             }
+            $hasnobalance = $hasnobalance || $status === job_manager::STATUS_NOBALANCE;
             $grade = $this->assignment->get_user_grade($user->id, false, $job->attempt);
             $result = $grade ? $this->get_result($grade->id) : false;
             $name = $this->assignment->is_blind_marking()
                 ? get_string('hiddenuser', 'assign') . $this->assignment->get_uniqueid_for_user($user->id)
                 : fullname($user);
+            $cancancel = $canrequest && (($status === job_manager::STATUS_QUEUED && $job->timestarted === null)
+                || ($status === job_manager::STATUS_FAILED && in_array($job->errorcode, job_manager::PAUSE_ERRORS, true)));
+            $canretry = $canrequest && !job_manager::is_pending($job) && $status !== job_manager::STATUS_DONE;
             $rows[] = [
                 'name' => $name,
                 'status' => $status,
@@ -754,6 +1022,10 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 'reviewcount' => $result ? (int) $result->reviewcount : 0,
                 'approved' => $result && $result->approved,
                 'time' => userdate($job->timemodified, get_string('strftimedatetimeshort', 'core_langconfig')),
+                'jobid' => (int) $job->id,
+                'canretry' => $canretry,
+                'cancancel' => $cancancel,
+                'hasactions' => $canretry || $cancancel,
             ];
         }
         $summary = [];
@@ -761,23 +1033,31 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             $summary[] = ['label' => get_string('status_' . $status, 'assignfeedback_proctorai'), 'count' => $n];
         }
 
-        $account = account::get(false);
-        $context = [
+        // The teacher is looking at the balance: fetch it fresh.
+        $account = account::refresh_for_display();
+        $threshold = (int) get_config('assignfeedback_proctorai', 'lowbalance');
+        $sheets = $account ? (int) ($account['sheetsRemaining'] ?? 0) : 0;
+        $template = [
             'rows' => $rows,
             'hasrows' => (bool) $rows,
             'summary' => $summary,
-            'balance' => $account ? (int) ($account['sheetsRemaining'] ?? 0) : null,
             'hasbalance' => $account !== null,
+            'balance' => $account ? format_float((float) ($account['balance'] ?? 0), 2, true, true) : '',
+            'sheets' => $sheets,
+            'price' => $account ? format_float((float) ($account['pricePerSheet'] ?? 0), 2, true, true) : '',
+            'lowbalance' => $account !== null && $threshold > 0 && $sheets < $threshold,
+            'nobalance' => $account !== null && $sheets < 1,
             'paused' => account::is_paused(),
-            'gradeallurl' => $this->can_request() ? $this->page_url('gradeall')->out(false) : '',
-            'backurl' => (new moodle_url('/mod/assign/view.php', [
-                'id' => $this->assignment->get_course_module()->id,
-                'action' => 'grading',
-            ]))->out(false),
+            'actionurl' => (new moodle_url('/mod/assign/view.php'))->out(false),
+            'jobhidden' => $this->hidden_fields('jobaction'),
+            'retryallhidden' => $this->hidden_fields('retrynobalance'),
+            'canretryall' => $canrequest && $hasnobalance,
+            'gradeallurl' => $canrequest ? $this->page_url('gradeall')->out(false) : '',
+            'backurl' => $this->grading_url()->out(false),
         ];
         return $this->render_page(
             get_string('statuspage', 'assignfeedback_proctorai'),
-            $OUTPUT->render_from_template('assignfeedback_proctorai/status', $context)
+            $OUTPUT->render_from_template('assignfeedback_proctorai/status', $template)
         );
     }
 }

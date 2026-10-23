@@ -1,0 +1,116 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignfeedback_proctorai/markingkey_editor
+
+    The structured marking-key editor, rendered by amd/src/markingkey_editor.js above the textarea.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * data-region="keyeditor-total"
+    * data-field, data-question, data-sub on inputs
+    * data-action (addquestion, removequestion, addsub, removesub, astext, asstructured) on buttons
+
+    Context variables required for this template:
+    * structured - Whether the cards are shown (otherwise the text box is)
+    * cantshow - Why the key cannot be shown as cards, if it cannot
+    * questions - index, number, prompt, marks, answer, options, hassubs, subs
+
+    Example context (json):
+    {
+        "structured": true,
+        "cantshow": "",
+        "questions": [
+            {
+                "index": 0, "number": 1, "prompt": "Name the capital of France.", "marks": "2",
+                "answer": "Paris", "options": "", "hassubs": false, "subs": []
+            },
+            {
+                "index": 1, "number": 2, "prompt": "Photosynthesis", "marks": "", "answer": "", "options": "",
+                "hassubs": true,
+                "subs": [{"qindex": 1, "index": 0, "label": "2a", "prompt": "Name the gas taken in.", "marks": "1", "answer": "CO2"}]
+            }
+        ]
+    }
+}}
+<div class="d-flex flex-wrap align-items-center mb-2">
+    <span class="me-3 fw-bold" data-region="keyeditor-total" aria-live="polite"></span>
+    {{#structured}}
+        <button type="button" class="btn btn-sm btn-link" data-action="astext">{{#str}} keyeditorastext, assignfeedback_proctorai {{/str}}</button>
+    {{/structured}}
+    {{^structured}}
+        <button type="button" class="btn btn-sm btn-link" data-action="asstructured">{{#str}} keyeditorasstructured, assignfeedback_proctorai {{/str}}</button>
+        {{#cantshow}}<span class="text-muted small">{{cantshow}}</span>{{/cantshow}}
+    {{/structured}}
+</div>
+{{#structured}}
+    {{#questions}}
+        <fieldset class="card mb-2">
+            <div class="card-body p-2">
+                <legend class="h6">{{#str}} questionn, assignfeedback_proctorai, {{number}} {{/str}}</legend>
+                <div class="row g-2">
+                    <div class="col-md-9">
+                        <label class="form-label small" for="keyeditor_q{{index}}_prompt">{{#str}} keyeditorprompt, assignfeedback_proctorai {{/str}}</label>
+                        <textarea class="form-control form-control-sm" rows="2" id="keyeditor_q{{index}}_prompt" data-field="prompt" data-question="{{index}}">{{prompt}}</textarea>
+                    </div>
+                    {{^hassubs}}
+                        <div class="col-md-3">
+                            <label class="form-label small" for="keyeditor_q{{index}}_marks">{{#str}} marks, assignfeedback_proctorai {{/str}}</label>
+                            <input type="number" min="0" step="any" class="form-control form-control-sm" id="keyeditor_q{{index}}_marks" value="{{marks}}" data-field="marks" data-question="{{index}}">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small" for="keyeditor_q{{index}}_answer">{{#str}} keyeditoranswer, assignfeedback_proctorai {{/str}}</label>
+                            <textarea class="form-control form-control-sm" rows="2" id="keyeditor_q{{index}}_answer" data-field="answer" data-question="{{index}}">{{answer}}</textarea>
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small" for="keyeditor_q{{index}}_options">{{#str}} keyeditoroptions, assignfeedback_proctorai {{/str}}</label>
+                            <input type="text" class="form-control form-control-sm" id="keyeditor_q{{index}}_options" value="{{options}}" data-field="options" data-question="{{index}}">
+                        </div>
+                    {{/hassubs}}
+                </div>
+                {{#subs}}
+                    <div class="border-start ps-2 ms-2 mt-2">
+                        <div class="row g-2">
+                            <div class="col-md-8">
+                                <label class="form-label small" for="keyeditor_q{{qindex}}s{{index}}_prompt">{{#str}} keyeditorsubprompt, assignfeedback_proctorai, {{label}} {{/str}}</label>
+                                <textarea class="form-control form-control-sm" rows="1" id="keyeditor_q{{qindex}}s{{index}}_prompt" data-field="prompt" data-question="{{qindex}}" data-sub="{{index}}">{{prompt}}</textarea>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small" for="keyeditor_q{{qindex}}s{{index}}_marks">{{#str}} marks, assignfeedback_proctorai {{/str}}</label>
+                                <input type="number" min="0" step="any" class="form-control form-control-sm" id="keyeditor_q{{qindex}}s{{index}}_marks" value="{{marks}}" data-field="marks" data-question="{{qindex}}" data-sub="{{index}}">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-action="removesub" data-question="{{qindex}}" data-sub="{{index}}">{{#str}} keyeditorremovesub, assignfeedback_proctorai, {{label}} {{/str}}</button>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small" for="keyeditor_q{{qindex}}s{{index}}_answer">{{#str}} keyeditoranswer, assignfeedback_proctorai {{/str}}</label>
+                                <textarea class="form-control form-control-sm" rows="1" id="keyeditor_q{{qindex}}s{{index}}_answer" data-field="answer" data-question="{{qindex}}" data-sub="{{index}}">{{answer}}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                {{/subs}}
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="addsub" data-question="{{index}}">{{#str}} keyeditoraddsub, assignfeedback_proctorai {{/str}}</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="removequestion" data-question="{{index}}">{{#str}} keyeditorremove, assignfeedback_proctorai, {{number}} {{/str}}</button>
+                </div>
+            </div>
+        </fieldset>
+    {{/questions}}
+    <button type="button" class="btn btn-sm btn-secondary" data-action="addquestion">{{#str}} keyeditoradd, assignfeedback_proctorai {{/str}}</button>
+{{/structured}}

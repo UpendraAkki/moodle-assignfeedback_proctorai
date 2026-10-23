@@ -42,6 +42,8 @@ class setting_status extends \admin_setting_heading {
      * @return string HTML.
      */
     public function output_html($data, $query = '') {
+        // The admin is looking at the balance: show the current one, not a cached one.
+        account::clear_cache();
         $this->description = account::status_html();
         return parent::output_html($data, $query);
     }

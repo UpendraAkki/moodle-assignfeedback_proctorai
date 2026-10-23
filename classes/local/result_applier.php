@@ -36,18 +36,40 @@ require_once($CFG->dirroot . '/grade/grading/lib.php');
  */
 class result_applier {
     /**
-     * Save the result for the job's student and attempt.
+     * Save the result for the job's attempt, for each student it applies to.
      *
      * @param \assign $assign The assignment.
      * @param \stdClass $job The job record.
      * @param array $result The POST /grade response body.
+     * @param int[] $userids Who receives it: the job's student, or every group member. Default: the job's student.
+     * @return \stdClass The assignfeedback_proctorai record of the job's student.
+     */
+    public static function apply(\assign $assign, \stdClass $job, array $result, array $userids = []): \stdClass {
+        $userids = $userids ?: [(int) $job->userid];
+        $first = null;
+        foreach ($userids as $userid) {
+            $row = self::apply_one($assign, $job, $result, (int) $userid);
+            if ((int) $userid === (int) $job->userid || $first === null) {
+                $first = $row;
+            }
+        }
+        return $first;
+    }
+
+    /**
+     * Save the result for one student's grade.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $job The job record.
+     * @param array $result The POST /grade response body.
+     * @param int $userid The student.
      * @return \stdClass The assignfeedback_proctorai record.
      */
-    public static function apply(\assign $assign, \stdClass $job, array $result): \stdClass {
+    protected static function apply_one(\assign $assign, \stdClass $job, array $result, int $userid): \stdClass {
         global $DB;
 
         $instance = $assign->get_instance();
-        $grade = $assign->get_user_grade($job->userid, true, $job->attempt);
+        $grade = $assign->get_user_grade($userid, true, $job->attempt);
         $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id]);
         $now = time();
 
@@ -151,7 +173,7 @@ class result_applier {
      */
     public static function can_prefill(\assign $assign, \stdClass $grade, ?\stdClass $row): bool {
         $instance = $assign->get_instance();
-        if (!$instance->markingworkflow || $instance->grade <= 0 || !empty($instance->teamsubmission)) {
+        if (!$instance->markingworkflow || $instance->grade <= 0) {
             return false;
         }
         if (self::has_advanced_grading($assign)) {
@@ -245,5 +267,154 @@ class result_applier {
             }
         }
         return $html;
+    }
+
+    /**
+     * A question's mark as it stands: the teacher's if they changed it, otherwise the AI's.
+     *
+     * @param array $question One stored question.
+     * @return float
+     */
+    public static function effective_mark(array $question): float {
+        return isset($question['teacherEarned']) ? (float) $question['teacherEarned'] : (float) ($question['earned'] ?? 0);
+    }
+
+    /**
+     * Apply a teacher's per-question marks and recompute the totals and the suggested grade.
+     *
+     * Marks are clamped to 0..max for each question. A mark equal to the AI's clears the override.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $row The assignfeedback_proctorai record; updated in place, not saved.
+     * @param array $marks Question index => mark. Indexes not given keep their current mark.
+     * @return bool Whether any mark changed.
+     */
+    public static function set_teacher_marks(\assign $assign, \stdClass $row, array $marks): bool {
+        $stored = json_decode((string) $row->resultjson, true) ?: [];
+        $questions = $stored['questions'] ?? [];
+        $changed = false;
+        foreach ($questions as $index => $question) {
+            if (!array_key_exists($index, $marks) || !is_numeric($marks[$index])) {
+                continue;
+            }
+            $value = round(min((float) $question['max'], max(0.0, (float) $marks[$index])), 2);
+            if (grade_floats_different($value, self::effective_mark($question))) {
+                $changed = true;
+            }
+            if (grade_floats_different($value, (float) $question['earned'])) {
+                $questions[$index]['teacherEarned'] = $value;
+            } else {
+                unset($questions[$index]['teacherEarned']);
+            }
+        }
+        if (!$changed) {
+            return false;
+        }
+
+        $stored['questions'] = $questions;
+        // Apply the changes to the AI's total rather than re-adding the rows.
+        // The API's total already allows for selection rules such as "answer any three".
+        $delta = 0.0;
+        foreach ($questions as $question) {
+            $delta += self::effective_mark($question) - (float) $question['earned'];
+        }
+        $earned = max(0.0, (float) ($stored['marks']['earned'] ?? 0) + $delta);
+        $max = (float) $row->maxmarks;
+        $percentage = $max > 0 ? min(100.0, max(0.0, $earned / $max * 100)) : 0.0;
+        $grademax = (float) $assign->get_instance()->grade;
+
+        $row->resultjson = json_encode($stored, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $row->earned = round($earned, 2);
+        $row->percentage = round($percentage, 2);
+        $row->suggestedgrade = $grademax > 0 ? min($grademax, round($percentage / 100 * $grademax, 2)) : null;
+        return true;
+    }
+
+    /**
+     * The per-question table a student sees once a teacher has approved the result.
+     *
+     * @param \stdClass $row The assignfeedback_proctorai record.
+     * @return array Rows of label, mark, max and feedback.
+     */
+    public static function student_rows(\stdClass $row): array {
+        $stored = json_decode((string) $row->resultjson, true) ?: [];
+        $rows = [];
+        foreach ((array) ($stored['questions'] ?? []) as $question) {
+            $label = trim((string) ($question['label'] ?? ''));
+            if ($label === '') {
+                $label = $question['questionId'] . ($question['subQuestionId'] ?? '');
+            }
+            $rows[] = [
+                'label' => $label,
+                'mark' => format_float(self::effective_mark($question), 2, true, true),
+                'max' => format_float((float) $question['max'], 2, true, true),
+                'feedback' => (string) ($question['feedback'] ?? ''),
+            ];
+        }
+        return $rows;
+    }
+
+    /**
+     * Why apply_to_grade() would not write this student's grade, or null if it would.
+     *
+     * @param \assign $assign The assignment.
+     * @param int $userid The student.
+     * @return string|null "noresult", "notpoints" or "graded".
+     */
+    public static function apply_blocker(\assign $assign, int $userid): ?string {
+        global $DB;
+        $instance = $assign->get_instance();
+        $grade = $assign->get_user_grade($userid, false);
+        $row = $grade ? $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id]) : false;
+        if (!$row || $row->suggestedgrade === null) {
+            return 'noresult';
+        }
+        if ($instance->grade <= 0 || self::has_advanced_grading($assign)) {
+            return 'notpoints';
+        }
+        if ($grade->grade !== null && (float) $grade->grade >= 0) {
+            $ours = $row->appliedgrade !== null && !grade_floats_different((float) $grade->grade, (float) $row->appliedgrade);
+            if (!$ours) {
+                return 'graded';
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Write the result into the student's grade, approving it: the "Apply Proctor AI marks" action.
+     *
+     * This is an explicit teacher action, so unlike automatic grading it writes the gradebook.
+     * It still never overwrites a grade a person gave.
+     *
+     * @param \assign $assign The assignment.
+     * @param int $userid The student.
+     * @return string "applied", or why not: "noresult", "notpoints" or "graded".
+     */
+    public static function apply_to_grade(\assign $assign, int $userid): string {
+        global $DB, $USER;
+
+        $blocker = self::apply_blocker($assign, $userid);
+        if ($blocker !== null) {
+            return $blocker;
+        }
+        $instance = $assign->get_instance();
+        $grade = $assign->get_user_grade($userid, false);
+        $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id], '*', MUST_EXIST);
+
+        $value = (float) $row->suggestedgrade;
+        $assign->save_grade($userid, (object) [
+            'grade' => $value,
+            'attemptnumber' => (int) $grade->attemptnumber,
+            'applytoall' => 0,
+            'sendstudentnotifications' => !empty($instance->sendstudentnotifications),
+        ]);
+        $row->appliedgrade = $value;
+        $row->approved = 1;
+        $row->approvedby = $USER->id;
+        $row->timeapproved = time();
+        $row->timemodified = time();
+        $DB->update_record('assignfeedback_proctorai', $row);
+        return 'applied';
     }
 }

@@ -17,7 +17,7 @@
 {{!
     @template assignfeedback_proctorai/status
 
-    Every student's latest Proctor AI job in one assignment.
+    The balance and every student's latest Proctor AI job in one assignment, with retry and cancel.
 
     Classes required for JS:
     * none
@@ -26,10 +26,11 @@
     * none
 
     Context variables required for this template:
-    * rows, hasrows - One row per student with a job
+    * rows, hasrows - One row per student with a job, with jobid, canretry, cancancel, hasactions
     * summary - Count per status
-    * balance, hasbalance - Sheets remaining, from the cache
+    * hasbalance, balance, sheets, price, lowbalance, nobalance - The balance, fetched fresh
     * paused - Whether the plugin is paused site-wide
+    * actionurl, jobhidden, retryallhidden, canretryall - The action forms
     * gradeallurl, backurl - Links
 
     Example context (json):
@@ -37,20 +38,32 @@
         "rows": [
             {
                 "name": "Sam Student",
-                "status": "done",
-                "statuslabel": "Graded by AI",
-                "error": "",
-                "marks": "AI: 7 / 10 (70%)",
-                "reviewcount": 1,
+                "status": "nobalance",
+                "statuslabel": "Not graded: balance ran out",
+                "error": "Buy more gradings.",
+                "marks": "",
+                "reviewcount": 0,
                 "approved": false,
-                "time": "21/10/26, 10:00"
+                "time": "21/10/26, 10:00",
+                "jobid": 5,
+                "canretry": true,
+                "cancancel": false,
+                "hasactions": true
             }
         ],
         "hasrows": true,
-        "summary": [{"label": "Graded by AI", "count": 1}],
-        "balance": 120,
+        "summary": [{"label": "Not graded: balance ran out", "count": 1}],
         "hasbalance": true,
+        "balance": "120",
+        "sheets": 120,
+        "price": "1",
+        "lowbalance": false,
+        "nobalance": false,
         "paused": false,
+        "actionurl": "https://example.com/mod/assign/view.php",
+        "jobhidden": [{"name": "id", "value": "12"}, {"name": "sesskey", "value": "abc"}],
+        "retryallhidden": [{"name": "id", "value": "12"}, {"name": "sesskey", "value": "abc"}],
+        "canretryall": true,
         "gradeallurl": "https://example.com/mod/assign/view.php?id=12",
         "backurl": "https://example.com/mod/assign/view.php?id=12&action=grading"
     }
@@ -59,10 +72,26 @@
     {{#paused}}
         <div class="alert alert-danger">{{#str}} paused, assignfeedback_proctorai {{/str}}</div>
     {{/paused}}
+    {{#hasbalance}}
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <strong>{{#str}} balance, assignfeedback_proctorai {{/str}}:</strong> {{balance}}
+                &middot; {{#str}} sheetsn, assignfeedback_proctorai, {{sheets}} {{/str}}
+                &middot; {{#str}} costpersheet, assignfeedback_proctorai {{/str}}: {{price}}
+                {{#nobalance}}<div class="text-danger mt-1">{{#str}} bannernobalance, assignfeedback_proctorai {{/str}}</div>{{/nobalance}}
+                {{^nobalance}}{{#lowbalance}}<div class="text-warning mt-1">{{#str}} bannerlowbalance, assignfeedback_proctorai, {{sheets}} {{/str}}</div>{{/lowbalance}}{{/nobalance}}
+            </div>
+        </div>
+    {{/hasbalance}}
     <p>
         {{#summary}}<span class="badge bg-light text-dark me-1">{{label}}: {{count}}</span>{{/summary}}
-        {{#hasbalance}}<span class="ms-2 text-muted">{{#str}} sheetsn, assignfeedback_proctorai, {{balance}} {{/str}}</span>{{/hasbalance}}
     </p>
+    {{#canretryall}}
+        <form method="post" action="{{actionurl}}" class="mb-3">
+            {{#retryallhidden}}<input type="hidden" name="{{name}}" value="{{value}}">{{/retryallhidden}}
+            <button type="submit" class="btn btn-outline-primary">{{#str}} retryallnobalance, assignfeedback_proctorai {{/str}}</button>
+        </form>
+    {{/canretryall}}
     {{#hasrows}}
         <div class="table-responsive">
             <table class="table table-sm table-striped">
@@ -72,6 +101,7 @@
                         <th scope="col">{{#str}} status, assignfeedback_proctorai {{/str}}</th>
                         <th scope="col">{{#str}} aitotalcolumn, assignfeedback_proctorai {{/str}}</th>
                         <th scope="col">{{#str}} lastchange, assignfeedback_proctorai {{/str}}</th>
+                        <th scope="col">{{#str}} actions {{/str}}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,6 +118,16 @@
                                 {{#approved}}<span class="badge bg-success">{{#str}} approved, assignfeedback_proctorai {{/str}}</span>{{/approved}}
                             </td>
                             <td>{{time}}</td>
+                            <td class="text-nowrap">
+                                {{#hasactions}}
+                                    <form method="post" action="{{actionurl}}" class="d-inline">
+                                        {{#jobhidden}}<input type="hidden" name="{{name}}" value="{{value}}">{{/jobhidden}}
+                                        <input type="hidden" name="jobid" value="{{jobid}}">
+                                        {{#canretry}}<button type="submit" name="do" value="retry" class="btn btn-sm btn-outline-primary">{{#str}} retry, assignfeedback_proctorai {{/str}}</button>{{/canretry}}
+                                        {{#cancancel}}<button type="submit" name="do" value="cancel" class="btn btn-sm btn-outline-secondary">{{#str}} cancel {{/str}}</button>{{/cancancel}}
+                                    </form>
+                                {{/hasactions}}
+                            </td>
                         </tr>
                     {{/rows}}
                 </tbody>
