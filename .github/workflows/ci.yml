@@ -113,6 +113,21 @@ jobs:
         id: behat
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci behat --profile chrome
+        env:
+          # The "I save a Proctor AI screenshot" step writes the plugins-directory screenshots here.
+          PROCTORAI_SCREENSHOT_DIR: ${{ github.workspace }}/screenshots
+          # The fake API is served by the test site itself, and some pages call it while they load.
+          # PHP's built-in server answers one request at a time unless it has workers.
+          PHP_CLI_SERVER_WORKERS: 4
+
+      - name: Upload screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Screenshots (${{ matrix.moodle-branch }})
+          path: ${{ github.workspace }}/screenshots
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload Behat Faildump
         if: ${{ failure() && steps.behat.outcome == 'failure' }}

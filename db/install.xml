@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/assign/feedback/proctorai/db" VERSION="20261021" COMMENT="XMLDB file for Moodle mod/assign/feedback/proctorai"
+<XMLDB PATH="mod/assign/feedback/proctorai/db" VERSION="20261023" COMMENT="XMLDB file for Moodle mod/assign/feedback/proctorai"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../../../lib/xmldb/xmldb.xsd"
 >
@@ -21,6 +21,7 @@
         <FIELD NAME="requestjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The exact grade request, kept until the job ends so retries are identical"/>
         <FIELD NAME="attempts" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="How many times the task has run this job"/>
         <FIELD NAME="uploadretries" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="batchnotified" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="1 once the batch completion notice was sent"/>
         <FIELD NAME="errorcode" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="errormessage" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="remoteid" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false" COMMENT="Proctor AI grading id (grd_...)"/>

@@ -50,7 +50,8 @@ class get_status extends external_api {
      * @return array
      */
     public static function execute(int $assignid, int $userid): array {
-        global $DB;
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         ['assignid' => $assignid, 'userid' => $userid] = self::validate_parameters(self::execute_parameters(), [
             'assignid' => $assignid,
@@ -62,7 +63,7 @@ class get_status extends external_api {
         require_capability('mod/assign:grade', $context);
         require_capability('assignfeedback/proctorai:viewdetails', $context);
 
-        $job = job_manager::latest_job($assignid, $userid);
+        $job = job_manager::latest_job_for(new \assign($context, $cm, null), $userid);
         $result = [
             'status' => $job ? $job->status : 'none',
             'statuslabel' => get_string('status_' . ($job ? $job->status : 'none'), 'assignfeedback_proctorai'),

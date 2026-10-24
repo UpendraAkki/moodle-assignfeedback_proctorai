@@ -26,11 +26,10 @@ defined('MOODLE_INTERNAL') || die();
 
 $definitions = [
     // The response of GET /account (balance, price, limits), shared by the whole site.
+    // No static acceleration: a long-running cron process must see a balance another process refreshed.
     'account' => [
         'mode' => cache_store::MODE_APPLICATION,
         'simplekeys' => true,
         'simpledata' => false,
-        'staticacceleration' => true,
-        'staticaccelerationsize' => 1,
     ],
 ];

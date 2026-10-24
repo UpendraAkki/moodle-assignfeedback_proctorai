@@ -24,15 +24,16 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use assignfeedback_proctorai\admin\setting_status;
 use assignfeedback_proctorai\local\account;
 
 if ($ADMIN->fulltree) {
     $callback = [account::class, 'settings_updated'];
 
-    $settings->add(new admin_setting_heading(
+    $settings->add(new setting_status(
         'assignfeedback_proctorai/statusheading',
         get_string('connectionstatus', 'assignfeedback_proctorai'),
-        account::status_html()
+        ''
     ));
 
     $settings->add(new admin_setting_configcheckbox(
@@ -99,5 +100,16 @@ if ($ADMIN->fulltree) {
         new lang_string('autogradecap_desc', 'assignfeedback_proctorai'),
         3,
         PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configselect(
+        'assignfeedback_proctorai/uploadmethod',
+        new lang_string('uploadmethod', 'assignfeedback_proctorai'),
+        new lang_string('uploadmethod_desc', 'assignfeedback_proctorai'),
+        'direct',
+        [
+            'direct' => new lang_string('uploadmethod_direct', 'assignfeedback_proctorai'),
+            'inline' => new lang_string('uploadmethod_inline', 'assignfeedback_proctorai'),
+        ]
     ));
 }
