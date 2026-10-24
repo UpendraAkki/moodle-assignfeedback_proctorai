@@ -136,7 +136,11 @@ class job_manager {
         if (empty($assign->get_instance()->teamsubmission) || !empty($submission->userid)) {
             return [$userid];
         }
-        $members = array_map('intval', array_keys($assign->get_submission_group_members($submission->groupid, true)));
+        // A plain list of user records (with only ids), not keyed by user id.
+        $members = array_map(
+            fn($member) => (int) $member->id,
+            array_values($assign->get_submission_group_members($submission->groupid, true))
+        );
         if (!in_array($userid, $members, true)) {
             $members[] = $userid;
         }
