@@ -101,7 +101,7 @@ vendor/bin/phpunit --testsuite assignfeedback_proctorai_testsuite
 
 HTTP is mocked: `\curl::mock_response()` for successful calls, and `tests/fake_client.php` (registered through `\core\di`) for error statuses and headers that the curl mock cannot fake. CI runs [moodle-plugin-ci](https://github.com/moodlehq/moodle-plugin-ci) on Moodle 4.5, 5.0 and 5.3.
 
-Behat features (`tests/behat`) run against a fake API, `tests/fixtures/fakeapi.php`, which the Behat test site serves itself, so CI never uses the network. The fixture refuses to run outside a Behat site. In CI the Behat run also saves the screenshots in `pix/screenshots`, uploaded as a build artifact.
+Behat features (`tests/behat`) run against a fake API, `tests/fixtures/fakeapi.php`, which the Behat test site serves itself, so CI never uses the network. The fixture refuses to run outside a Behat site. Some pages call the fake API while they load, so the Behat web server must handle more than one request at a time; with PHP's built-in server, set `PHP_CLI_SERVER_WORKERS=4` (CI does). In CI the Behat run also saves the screenshots in `pix/screenshots`, uploaded as a build artifact.
 
 After changing `amd/src`, rebuild with `grunt amd` from the Moodle root.
 

@@ -119,17 +119,19 @@ final class job_manager_test extends grading_testcase {
      */
     public function test_team_submission_graded_once_for_every_member(): void {
         global $DB;
+        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $group = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $this->student->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $other->id]);
         $assign = $this->create_assign([
             'teamsubmission' => 1,
             'requireallteammemberssubmit' => 0,
             'preventsubmissionnotingroup' => 0,
             'markingworkflow' => 1,
         ]);
-        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $group = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
-        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $this->student->id]);
-        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $other->id]);
         $this->submit_text($assign);
+        $submission = $DB->get_record('assign_submission', ['assignment' => $assign->get_instance()->id, 'userid' => 0]);
+        $this->assertEquals($group->id, $submission->groupid);
 
         $sorted = job_manager::eligible($assign, [$this->student->id, $other->id]);
         $this->assertSame([(int) $this->student->id], $sorted['eligible']);
@@ -144,9 +146,16 @@ final class job_manager_test extends grading_testcase {
         $this->run_job($job->id);
         $sink->close();
 
+        $this->assertSame(job_manager::STATUS_DONE, $this->job($job->id)->status);
         $this->assertCount(1, $client->requests);
+        // No stray group submission was created along the way.
+        $this->assertSame(1, $DB->count_records('assign_submission', ['assignment' => $assign->get_instance()->id, 'userid' => 0]));
         foreach ([$this->student, $other] as $member) {
-            $grade = $assign->get_user_grade($member->id, false);
+            $grade = $DB->get_record('assign_grades', [
+                'assignment' => $assign->get_instance()->id,
+                'userid' => $member->id,
+                'attemptnumber' => 0,
+            ], '*', MUST_EXIST);
             $this->assertEquals(70.0, (float) $grade->grade, 'Grade for member ' . $member->id);
             $this->assertTrue($DB->record_exists('assignfeedback_proctorai', ['grade' => $grade->id]));
             $flags = $assign->get_user_flags($member->id, false);

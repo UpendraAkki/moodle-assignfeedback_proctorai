@@ -57,6 +57,41 @@ class result_applier {
     }
 
     /**
+     * The student's grade record for the job's attempt, created if needed.
+     *
+     * For group submissions this does not go through assign::get_user_grade(): that looks the
+     * group up again for each member, and on a miss creates an empty group submission. The job
+     * already knows the attempt, and grades are stored per student and attempt.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $job The job record.
+     * @param int $userid The student.
+     * @return \stdClass The assign_grades record.
+     */
+    protected static function grade_for(\assign $assign, \stdClass $job, int $userid): \stdClass {
+        global $DB;
+        $instance = $assign->get_instance();
+        if (empty($instance->teamsubmission)) {
+            return $assign->get_user_grade($userid, true, (int) $job->attempt);
+        }
+        $params = ['assignment' => $instance->id, 'userid' => $userid, 'attemptnumber' => (int) $job->attempt];
+        $grade = $DB->get_record('assign_grades', $params);
+        if ($grade) {
+            return $grade;
+        }
+        // The same defaults as assign::get_user_grade() uses when it creates a grade.
+        $submission = $DB->get_record('assign_submission', ['id' => $job->submission]);
+        $grade = (object) ($params + [
+            'timecreated' => time(),
+            'timemodified' => $submission ? (int) $submission->timemodified : time(),
+            'grade' => -1,
+            'grader' => -1,
+        ]);
+        $grade->id = $DB->insert_record('assign_grades', $grade);
+        return $grade;
+    }
+
+    /**
      * Save the result for one student's grade.
      *
      * @param \assign $assign The assignment.
@@ -69,7 +104,7 @@ class result_applier {
         global $DB;
 
         $instance = $assign->get_instance();
-        $grade = $assign->get_user_grade($userid, true, $job->attempt);
+        $grade = self::grade_for($assign, $job, $userid);
         $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id]);
         $now = time();
 
