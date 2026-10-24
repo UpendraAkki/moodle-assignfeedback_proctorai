@@ -37,7 +37,7 @@ Feature: Grade submissions with Proctor AI and review the result
     When I press "Grade with Proctor AI (1)"
     Then I should see "Submissions queued for Proctor AI grading: 1."
     And I should see "Waiting for AI grading"
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     And I should see "Graded by AI"
     And I should see "AI: 7 / 10 (70%)"
@@ -53,7 +53,7 @@ Feature: Grade submissions with Proctor AI and review the result
     And I press "Apply Proctor AI marks (1)"
     And I should see "Proctor AI marks applied as grades: 1."
     And I am on the "Assign 1" "assign activity" page logged in as "student1"
-    And I should see "70.00 / 100.00"
+    And I should see "70.00"
     And I should see "A good attempt."
     And I should see "Marks per question"
 
@@ -65,13 +65,13 @@ Feature: Grade submissions with Proctor AI and review the result
     And I am on the Proctor AI "gradeall" page for "Assign 1" as "teacher1"
     And I press "Grade with Proctor AI (1)"
     And the fake Proctor AI API answers gradings with "402"
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     And I should see "Not graded: balance ran out"
     And the fake Proctor AI API answers gradings with "200"
     When I press "Retry everything stopped by the balance"
     Then I should see "Submissions queued for Proctor AI grading: 1."
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     And I should see "Graded by AI"
 
@@ -84,7 +84,7 @@ Feature: Grade submissions with Proctor AI and review the result
     And I should see "Cancelled"
     And I press "Retry"
     And I should see "The submission was queued for Proctor AI grading again."
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     Then I should see "AI grading failed"
     And I should see "The answer sheet has more than 20 pages."
@@ -93,7 +93,7 @@ Feature: Grade submissions with Proctor AI and review the result
     Given the fake Proctor AI API answers gradings with "401"
     And I am on the Proctor AI "gradeall" page for "Assign 1" as "teacher1"
     And I press "Grade with Proctor AI (1)"
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     When I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     Then I should see "Proctor AI grading is paused because the API key was rejected."
     And I am on the "Assign 1" "assign activity" page

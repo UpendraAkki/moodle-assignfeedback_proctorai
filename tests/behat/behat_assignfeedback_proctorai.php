@@ -27,6 +27,7 @@
 require_once(__DIR__ . '/../../../../../../lib/behat/behat_base.php');
 
 use Behat\Gherkin\Node\PyStringNode;
+use Behat\Mink\Exception\ExpectationException;
 
 /**
  * Behat steps for the Proctor AI feedback plugin.
@@ -36,6 +37,44 @@ use Behat\Gherkin\Node\PyStringNode;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_assignfeedback_proctorai extends behat_base {
+    /**
+     * Run this plugin's queued grading tasks now, through the task class, as cron would.
+     *
+     * Core's "I run all adhoc tasks" sometimes left these tasks unrun, which made scenarios flaky.
+     * This runs exactly this plugin's due tasks and fails with the job details if one is still pending.
+     *
+     * @Given /^I run the Proctor AI grading tasks$/
+     */
+    public function i_run_the_proctor_ai_grading_tasks(): void {
+        global $DB;
+        \core\cron::setup_user();
+        $errors = [];
+        foreach (\core\task\manager::get_adhoc_tasks(\assignfeedback_proctorai\task\grade_submission::class) as $task) {
+            if ($task->get_next_run_time() > time()) {
+                continue;
+            }
+            try {
+                $task->execute();
+            } catch (\Throwable $e) {
+                $errors[] = $e->getMessage();
+            }
+            $DB->delete_records('task_adhoc', ['id' => $task->get_id()]);
+        }
+        $pending = $DB->get_records_select(
+            'assignfeedback_proctorai_job',
+            "status IN ('queued', 'uploading', 'grading') AND timeready <= :now",
+            ['now' => time()],
+            '',
+            'id, status, errorcode, errormessage, timeready'
+        );
+        if ($pending) {
+            throw new ExpectationException(
+                'Proctor AI jobs still pending: ' . json_encode(array_values($pending)) . ' Errors: ' . json_encode($errors),
+                $this->getSession()
+            );
+        }
+    }
+
     /**
      * Point the plugin at the fake API served by this test site, with a test key and consent.
      *

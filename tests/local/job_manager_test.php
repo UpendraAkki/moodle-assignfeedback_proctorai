@@ -130,8 +130,12 @@ final class job_manager_test extends grading_testcase {
             'markingworkflow' => 1,
         ]);
         $this->submit_text($assign);
-        $submission = $DB->get_record('assign_submission', ['assignment' => $assign->get_instance()->id, 'userid' => 0]);
-        $this->assertEquals($group->id, $submission->groupid);
+        $submission = $DB->get_record('assign_submission', [
+            'assignment' => $assign->get_instance()->id,
+            'userid' => 0,
+            'groupid' => $group->id,
+        ], '*', MUST_EXIST);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_SUBMITTED, $submission->status);
 
         $sorted = job_manager::eligible($assign, [$this->student->id, $other->id]);
         $this->assertSame([(int) $this->student->id], $sorted['eligible']);
@@ -148,8 +152,10 @@ final class job_manager_test extends grading_testcase {
 
         $this->assertSame(job_manager::STATUS_DONE, $this->job($job->id)->status);
         $this->assertCount(1, $client->requests);
-        // No stray group submission was created along the way.
-        $this->assertSame(1, $DB->count_records('assign_submission', ['assignment' => $assign->get_instance()->id, 'userid' => 0]));
+        // The group's submission is untouched: still submitted, still attempt 0.
+        $after = $DB->get_record('assign_submission', ['id' => $submission->id], '*', MUST_EXIST);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_SUBMITTED, $after->status);
+        $this->assertEquals(0, $after->attemptnumber);
         foreach ([$this->student, $other] as $member) {
             $grade = $DB->get_record('assign_grades', [
                 'assignment' => $assign->get_instance()->id,

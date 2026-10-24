@@ -58,7 +58,7 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
     And I am on the Proctor AI "gradeall" page for "Assign 1" as "teacher1"
     And I save a Proctor AI screenshot named "confirm-page"
     And I press "Grade with Proctor AI (1)"
-    And I run all adhoc tasks
+    And I run the Proctor AI grading tasks
     And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
     And I save a Proctor AI screenshot named "status-page"
     When I am on the grader for "student1" in "Assign 1"
