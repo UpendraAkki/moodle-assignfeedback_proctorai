@@ -242,10 +242,13 @@ final class job_manager_test extends grading_testcase {
         $this->assertSame(job_manager::STATUS_CANCELLED, $this->job($job->id)->status);
 
         $started = job_manager::queue($assign, $this->student->id, job_manager::ORIGIN_MANUAL, $this->teacher->id);
+        global $DB;
         $record = $this->job($started->id);
         $record->status = job_manager::STATUS_GRADING;
         $record->timestarted = time();
+        $DB->update_record('assignfeedback_proctorai_job', $record);
         $this->assertFalse(job_manager::cancel($record));
+        $this->assertSame(job_manager::STATUS_GRADING, $this->job($started->id)->status);
     }
 
     /**

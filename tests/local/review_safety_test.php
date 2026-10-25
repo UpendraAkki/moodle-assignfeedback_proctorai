@@ -89,7 +89,7 @@ final class review_safety_test extends grading_testcase {
      * @param \assign $assign The assignment.
      * @return \stdClass
      */
-    private function result(\assign $assign): \stdClass {
+    private function stored_result(\assign $assign): \stdClass {
         global $DB;
         $grade = $assign->get_user_grade($this->student->id, false);
         return $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id], '*', MUST_EXIST);
@@ -108,7 +108,7 @@ final class review_safety_test extends grading_testcase {
         $this->submit_text($assign, 'A changed answer.');
         $this->assertNull(job_manager::queue($assign, $this->student->id, job_manager::ORIGIN_AUTO));
 
-        $row = $this->result($assign);
+        $row = $this->stored_result($assign);
         $this->assertEquals(1, $row->approved);
         $this->assertStringContainsString('Checked by the teacher.', $row->feedbacktext);
     }
@@ -127,7 +127,7 @@ final class review_safety_test extends grading_testcase {
         $job = $this->grade_now($assign);
         $this->assertSame(job_manager::STATUS_DONE, $job->status);
 
-        $row = $this->result($assign);
+        $row = $this->stored_result($assign);
         $this->assertEquals(0, $row->approved);
         $this->assertNull($row->approvedby);
         $grade = $assign->get_user_grade($this->student->id, false);
@@ -247,7 +247,7 @@ final class review_safety_test extends grading_testcase {
 
         $this->setUser($marker);
         $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessage(get_string('notingroup'));
+        $this->expectExceptionMessage(get_string('notingroup', 'error'));
         get_status::execute((int) $assign->get_instance()->id, (int) $this->student->id);
     }
 }
