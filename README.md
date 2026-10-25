@@ -147,7 +147,7 @@ What the [plugins directory](https://moodledev.io/general/community/plugincontri
 - [x] Icon (`pix/icon.svg`, `pix/monologo.svg`) and screenshots (`pix/screenshots`): settings, marking-key editor, grader panel, status page, student view.
 - [x] A 512×512 logo to upload with the listing: `docs/listing/logo-512.png`.
 - [x] Listing text, the paid account requirement, and links to the privacy policy and terms: `docs/listing/listing.md`.
-- [x] Tag the release (`v0.2.0`) and attach the ZIP to the GitHub release. It is built with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
+- [ ] Tag the release (`v0.2.0`) and attach the ZIP to the GitHub release. It is built with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
 - [ ] A reviewer test key (`pai_test_`) to give the plugins team in the approval issue, never in the repository.
 - [ ] Register the plugin at <https://moodle.org/plugins> and upload the ZIP, logo and screenshots.
 
