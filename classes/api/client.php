@@ -124,6 +124,39 @@ class client {
     }
 
     /**
+     * Extra headers for API requests, from config.php only. For staging servers behind an access gate.
+     *
+     * Set in config.php as `$CFG->assignfeedback_proctorai_extraheaders = ['Name' => 'value'];`. There is
+     * deliberately no admin setting. The headers go to the API URL only, never to the presigned upload
+     * URLs, and they cannot replace the headers this client sets itself.
+     *
+     * @return string[] Headers as "Name: value" strings.
+     */
+    public static function extra_headers(): array {
+        global $CFG;
+        $configured = $CFG->assignfeedback_proctorai_extraheaders ?? [];
+        if (!is_array($configured)) {
+            return [];
+        }
+        $reserved = ['authorization', 'accept', 'content-type', 'content-length', 'idempotency-key', 'host'];
+        $headers = [];
+        foreach ($configured as $name => $value) {
+            $name = trim((string) $name);
+            $value = trim((string) $value);
+            // Header names are tokens; values must not smuggle in a second header.
+            // The RFC 9110 token characters; \x60 is the backtick.
+            if (!preg_match('/^[A-Za-z0-9!#$%&\'*+.^_\x60|~-]+$/', $name) || preg_match('/[\r\n\0]/', $value)) {
+                continue;
+            }
+            if (in_array(strtolower($name), $reserved, true)) {
+                continue;
+            }
+            $headers[] = $name . ': ' . $value;
+        }
+        return $headers;
+    }
+
+    /**
      * Make one authenticated JSON request and map errors.
      *
      * @param string $method GET or POST.
@@ -145,6 +178,7 @@ class client {
         if ($apikey === '') {
             throw new api_exception(401, 'invalid_api_key', 'No API key is set.');
         }
+        $headers = array_merge($headers, self::extra_headers());
         $headers[] = 'Authorization: Bearer ' . $apikey;
         $headers[] = 'Accept: application/json';
         $payload = null;

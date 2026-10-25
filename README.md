@@ -93,6 +93,20 @@ HTTP is mocked: `\curl::mock_response()` for successful calls, and `tests/fake_c
 
 After changing `amd/src`, rebuild with `grunt amd` from the Moodle root.
 
+### Staging
+
+To test against a Proctor AI staging server, set **API URL** to the staging address and use a `pai_test_` key. A test key is never charged and returns fixed sample marks.
+
+If the staging server sits behind an access gate that needs a request header (for example Vercel Deployment Protection), add the header in `config.php`. There is deliberately no admin setting for this:
+
+```php
+$CFG->assignfeedback_proctorai_extraheaders = [
+    'x-vercel-protection-bypass' => '<secret from Vercel>',
+];
+```
+
+These headers are sent only to the API URL, never to the presigned upload URLs, and they cannot replace the plugin's own `Authorization`, `Content-Type`, `Accept` or `Idempotency-Key` headers. Treat the value as a secret: keep it out of version control and remove it on production sites.
+
 ## Licence
 
 Copyright 2026 Proctor AI. This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
