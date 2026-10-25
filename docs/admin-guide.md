@@ -3,6 +3,7 @@
 This guide takes about 15 minutes. You need:
 
 - Moodle 4.5 to 5.3, with **cron running** (grading happens in Moodle's background tasks).
+- An up-to-date PHP: PHP fixed two critical security flaws on 21 October 2026, so run at least 8.2.35, 8.3.36, 8.4.27 or 8.5.12 (PHP 8.1 has no fixed release; move to 8.2 or later). This protects your whole Moodle site, not only this plugin.
 - Permission to install plugins on the site.
 - A **Proctor AI account with a prepaid balance**. Sign up at [agent.proctorai.io](https://agent.proctorai.io). Each graded submission is paid from that balance.
 

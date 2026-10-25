@@ -16,12 +16,14 @@
 - [What if…? Questions and unusual cases](docs/faq.md)
 - [Privacy and data](docs/privacy.md)
 
+> **Keep PHP patched.** On 21 October 2026 PHP fixed two critical remote-code-execution flaws ([CVE-2026-109618 and CVE-2026-109619](https://www.php.net/archive/2026.php)). Run at least PHP 8.2.35, 8.3.36, 8.4.27 or 8.5.12. PHP 8.1 has no fixed release, only source patches, so a site on 8.1 should move to 8.2 or later. This affects your whole Moodle site, not just this plugin.
+
 ## Installation
 
 1. Copy this repository to `mod/assign/feedback/proctorai` in your Moodle code (on Moodle 5.1 and later, `public/mod/assign/feedback/proctorai`), or install the ZIP from *Site administration > Plugins > Install plugins*.
 2. Visit *Site administration > Notifications* to finish the installation.
 3. Go to *Site administration > Plugins > Activity modules > Assignment > Feedback plugins > Proctor AI grading* and:
-   - paste your **API key** (create one in your Proctor AI account under *Settings > API*);
+   - paste your **API key** (create one in your Proctor AI account under *Settings > API keys*);
    - leave **API URL** as `https://agent.proctorai.io/api/v1` unless Proctor AI support tells you otherwise;
    - read and tick **Allow sending student work to Proctor AI**. Nothing is sent until you do.
 
