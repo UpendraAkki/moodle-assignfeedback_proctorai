@@ -66,7 +66,7 @@ class get_status extends external_api {
         $assign = new \assign($context, $cm, null);
         // With separate groups, a teacher only sees the students of groups they can see.
         if (!groups_user_groups_visible($assign->get_course(), $userid, $cm)) {
-            throw new \moodle_exception('notingroup');
+            throw new \required_capability_exception($context, 'moodle/site:accessallgroups', 'nopermissions', '');
         }
         $job = job_manager::latest_job_for($assign, $userid);
         $result = [

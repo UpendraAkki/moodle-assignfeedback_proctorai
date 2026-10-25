@@ -246,8 +246,8 @@ final class review_safety_test extends grading_testcase {
         $this->getDataGenerator()->create_group_member(['groupid' => $groupb->id, 'userid' => $marker->id]);
 
         $this->setUser($marker);
-        $this->expectException(\moodle_exception::class);
-        $this->expectExceptionMessage(get_string('notingroup', 'error'));
+        $this->expectException(\required_capability_exception::class);
+        $this->expectExceptionMessage(get_capability_string('moodle/site:accessallgroups'));
         get_status::execute((int) $assign->get_instance()->id, (int) $this->student->id);
     }
 }
