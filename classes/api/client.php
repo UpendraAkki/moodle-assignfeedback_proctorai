@@ -178,6 +178,10 @@ class client {
         if ($apikey === '') {
             throw new api_exception(401, 'invalid_api_key', 'No API key is set.');
         }
+        $url = account::api_url();
+        if (!self::is_secure_url($url)) {
+            throw new api_exception(400, 'insecure_url', get_string('insecureurl', 'assignfeedback_proctorai'));
+        }
         $headers = array_merge($headers, self::extra_headers());
         $headers[] = 'Authorization: Bearer ' . $apikey;
         $headers[] = 'Accept: application/json';
@@ -186,8 +190,24 @@ class client {
             $headers[] = 'Content-Type: application/json';
             $payload = json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         }
-        $response = $this->send($method, account::api_url() . $path, $payload, $headers, $timeout);
+        $response = $this->send($method, $url . $path, $payload, $headers, $timeout);
         return self::parse_response($response);
+    }
+
+    /**
+     * Whether the API key may be sent to this URL: https, or plain http to this machine only
+     * (a local test server; the Behat fake API is one).
+     *
+     * @param string $url The API URL.
+     * @return bool
+     */
+    public static function is_secure_url(string $url): bool {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        if ($scheme === 'https') {
+            return true;
+        }
+        $host = strtolower(trim((string) parse_url($url, PHP_URL_HOST), '[]'));
+        return $scheme === 'http' && in_array($host, ['localhost', '127.0.0.1', '::1'], true);
     }
 
     /**
@@ -255,6 +275,9 @@ class client {
             'CURLOPT_TIMEOUT' => $timeout,
             'CURLOPT_CONNECTTIMEOUT' => 20,
             'CURLOPT_RETURNTRANSFER' => true,
+            // A redirect would carry the same headers, the API key among them, to another host.
+            // The API never redirects, so a 3xx is reported as an error instead of followed.
+            'CURLOPT_FOLLOWLOCATION' => 0,
         ];
         $body = match ($method) {
             'GET' => $curl->get($url, [], $options),

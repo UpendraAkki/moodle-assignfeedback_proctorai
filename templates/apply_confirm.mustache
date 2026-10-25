@@ -1,0 +1,61 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignfeedback_proctorai/apply_confirm
+
+    Confirm "Apply Proctor AI marks": the AI grades become the students' grades, visible to them.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * count, requested - Grades to write, and students asked for
+    * skipped, hasskipped - Reasons students were left out
+    * canapply - Whether the button is enabled
+    * actionurl, hidden, cancelurl - The form
+
+    Example context (json):
+    {
+        "count": 2,
+        "requested": 3,
+        "skipped": [{"reason": "Already graded by a teacher", "count": 1}],
+        "hasskipped": true,
+        "canapply": true,
+        "actionurl": "https://example.com/mod/assign/view.php",
+        "hidden": [{"name": "id", "value": "12"}, {"name": "selectedusers", "value": "3,4"}],
+        "cancelurl": "https://example.com/mod/assign/view.php?id=12&action=grading"
+    }
+}}
+<div class="assignfeedback_proctorai_applyconfirm">
+    <p>{{#str}} applyintro, assignfeedback_proctorai, {"count": {{count}}, "requested": {{requested}} } {{/str}}</p>
+    {{#hasskipped}}
+        <ul>
+            {{#skipped}}
+                <li>{{reason}}: {{count}}</li>
+            {{/skipped}}
+        </ul>
+    {{/hasskipped}}
+    <div class="alert alert-info">{{#str}} applywarning, assignfeedback_proctorai {{/str}}</div>
+    <form method="post" action="{{actionurl}}">
+        {{#hidden}}<input type="hidden" name="{{name}}" value="{{value}}">{{/hidden}}
+        <button type="submit" class="btn btn-primary" {{^canapply}}disabled{{/canapply}}>{{#str}} applybutton, assignfeedback_proctorai, {{count}} {{/str}}</button>
+        <a class="btn btn-secondary" href="{{cancelurl}}">{{#str}} cancel {{/str}}</a>
+    </form>
+</div>

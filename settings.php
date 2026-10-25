@@ -101,4 +101,15 @@ if ($ADMIN->fulltree) {
         3,
         PARAM_INT
     ));
+
+    $settings->add(new admin_setting_configselect(
+        'assignfeedback_proctorai/uploadmethod',
+        new lang_string('uploadmethod', 'assignfeedback_proctorai'),
+        new lang_string('uploadmethod_desc', 'assignfeedback_proctorai'),
+        'direct',
+        [
+            'direct' => new lang_string('uploadmethod_direct', 'assignfeedback_proctorai'),
+            'inline' => new lang_string('uploadmethod_inline', 'assignfeedback_proctorai'),
+        ]
+    ));
 }

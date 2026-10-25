@@ -50,7 +50,8 @@ class get_status extends external_api {
      * @return array
      */
     public static function execute(int $assignid, int $userid): array {
-        global $DB;
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
         ['assignid' => $assignid, 'userid' => $userid] = self::validate_parameters(self::execute_parameters(), [
             'assignid' => $assignid,
@@ -62,7 +63,12 @@ class get_status extends external_api {
         require_capability('mod/assign:grade', $context);
         require_capability('assignfeedback/proctorai:viewdetails', $context);
 
-        $job = job_manager::latest_job($assignid, $userid);
+        $assign = new \assign($context, $cm, null);
+        // With separate groups, a teacher only sees the students of groups they can see.
+        if (!groups_user_groups_visible($assign->get_course(), $userid, $cm)) {
+            throw new \required_capability_exception($context, 'moodle/site:accessallgroups', 'nopermissions', '');
+        }
+        $job = job_manager::latest_job_for($assign, $userid);
         $result = [
             'status' => $job ? $job->status : 'none',
             'statuslabel' => get_string('status_' . ($job ? $job->status : 'none'), 'assignfeedback_proctorai'),

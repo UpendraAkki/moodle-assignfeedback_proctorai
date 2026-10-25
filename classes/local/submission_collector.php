@@ -35,7 +35,8 @@ class submission_collector {
      *
      * @param \assign $assign The assignment.
      * @param \stdClass $submission The assign_submission record.
-     * @return \stdClass With files (stored_file[]), text (string), skipped (string[] file names) and hash (string).
+     * @return \stdClass With files (stored_file[]), text (string), hash (string), and skipped: the files left
+     *     out, as ['name' => file name, 'reason' => 'type', 'size' or 'empty'].
      */
     public static function collect(\assign $assign, \stdClass $submission): \stdClass {
         global $DB;
@@ -63,11 +64,14 @@ class submission_collector {
                     continue;
                 }
                 $mimetype = self::mimetype($file);
-                if (
-                    !in_array($mimetype, $accepted, true) || $file->get_filesize() > account::max_bytes($mimetype)
-                        || $file->get_filesize() <= 0
-                ) {
-                    $skipped[] = $file->get_filename();
+                $reason = match (true) {
+                    !in_array($mimetype, $accepted, true) => 'type',
+                    $file->get_filesize() <= 0 => 'empty',
+                    $file->get_filesize() > account::max_bytes($mimetype) => 'size',
+                    default => null,
+                };
+                if ($reason !== null) {
+                    $skipped[] = ['name' => $file->get_filename(), 'reason' => $reason];
                     continue;
                 }
                 $files[$file->get_contenthash() . '/' . $file->get_pathnamehash()] = $file;

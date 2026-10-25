@@ -71,6 +71,7 @@ class provider implements
             'requestjson' => 'privacy:metadata:requestjson',
             'status' => 'privacy:metadata:status',
             'errormessage' => 'privacy:metadata:errormessage',
+            'notsent' => 'privacy:metadata:notsent',
             'timecreated' => 'privacy:metadata:timecreated',
         ], 'privacy:metadata:jobtable');
 
@@ -175,11 +176,14 @@ class provider implements
         if (!$grade) {
             return;
         }
+        $context = $exportdata->get_context();
+        $path = array_merge($exportdata->get_subcontext(), [get_string('privacy:path', 'assignfeedback_proctorai')]);
+        self::export_jobs($context, $path, $grade);
+
         $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id]);
         if (!$row) {
             return;
         }
-        $context = $exportdata->get_context();
         $result = json_decode((string) $row->resultjson, true) ?: [];
         $data = (object) [
             'earned' => $row->earned,
@@ -192,8 +196,41 @@ class provider implements
             'approved' => transform::yesno($row->approved),
             'timemodified' => transform::datetime($row->timemodified),
         ];
-        $path = array_merge($exportdata->get_subcontext(), [get_string('privacy:path', 'assignfeedback_proctorai')]);
         writer::with_context($context)->export_data($path, $data);
+    }
+
+    /**
+     * Export the grading requests made for the student's attempt: what was sent and what happened.
+     *
+     * @param \context $context The assignment context.
+     * @param array $path Where the result is exported.
+     * @param \stdClass $grade The assign_grades record.
+     */
+    protected static function export_jobs(\context $context, array $path, \stdClass $grade): void {
+        global $DB;
+        $jobs = $DB->get_records(
+            'assignfeedback_proctorai_job',
+            ['assignment' => $grade->assignment, 'userid' => $grade->userid, 'attempt' => $grade->attemptnumber],
+            'id ASC'
+        );
+        if (!$jobs) {
+            return;
+        }
+        $requests = [];
+        foreach ($jobs as $job) {
+            $request = $job->requestjson ? (json_decode((string) $job->requestjson, true) ?: []) : [];
+            $requests[] = (object) [
+                'status' => $job->status,
+                'error' => $job->errormessage,
+                'filesnotsent' => $job->notsent ? json_decode((string) $job->notsent, true) : [],
+                // The typed answers as sent. Page images are not repeated here: they are the submission's own files.
+                'answersheettext' => $request['answerSheetText'] ?? null,
+                'pagessentinline' => count($request['pages'] ?? []),
+                'timecreated' => transform::datetime($job->timecreated),
+                'timecompleted' => $job->timecompleted ? transform::datetime($job->timecompleted) : null,
+            ];
+        }
+        writer::with_context($context)->export_related_data($path, 'requests', (object) ['requests' => $requests]);
     }
 
     /**

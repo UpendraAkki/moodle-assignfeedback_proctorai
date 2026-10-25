@@ -189,18 +189,42 @@ class account {
     /**
      * Record a balance the API reported (after a grading or a 402) without another call.
      *
+     * The entry is stamped as fetched now, so it counts as fresh for CACHE_TTL and is then
+     * checked again: a zero balance after a 402 does not outlive a top-up by more than that.
+     *
      * @param float $balance The new balance, in gradings.
+     * @param float|null $price The price per sheet, if the response gave one.
      */
-    public static function record_balance(float $balance): void {
+    public static function record_balance(float $balance, ?float $price = null): void {
         $cache = \cache::make('assignfeedback_proctorai', 'account');
-        $account = $cache->get('account');
-        if (!$account) {
-            return;
-        }
+        $account = $cache->get('account') ?: [];
+        $price = $price ?? (float) ($account['pricePerSheet'] ?? 1);
         $account['balance'] = $balance;
-        $price = (float) ($account['pricePerSheet'] ?? 1);
+        $account['pricePerSheet'] = $price;
         $account['sheetsRemaining'] = $price > 0 ? (int) floor(($balance + 1e-6) / $price) : 0;
+        $account['fetchedat'] = time();
         $cache->set('account', $account);
+    }
+
+    /**
+     * Forget the cached balance and fetch it again, for pages that show it.
+     *
+     * @param int $timeout Seconds to wait.
+     * @return array|null The account, or null if it could not be fetched or the plugin is not configured.
+     */
+    public static function refresh_for_display(int $timeout = 10): ?array {
+        if (!self::is_configured()) {
+            return null;
+        }
+        self::clear_cache();
+        if (self::is_paused()) {
+            return null;
+        }
+        try {
+            return self::refresh($timeout);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /**
@@ -213,13 +237,27 @@ class account {
     /**
      * Whether the cached account says there is not enough balance for one sheet.
      *
-     * Only the cache is read, so this never makes a request.
+     * A fresh "out of balance" entry is trusted, so a batch that hits a 402 stops without
+     * calling the API for every remaining job. Once it is older than CACHE_TTL the balance
+     * is fetched again, so grading resumes soon after the account is topped up.
      *
      * @return bool
      */
     public static function known_out_of_balance(): bool {
         $account = self::get(false);
-        return $account !== null && isset($account['sheetsRemaining']) && (int) $account['sheetsRemaining'] < 1;
+        if ($account === null || !isset($account['sheetsRemaining']) || (int) $account['sheetsRemaining'] >= 1) {
+            return false;
+        }
+        if ((int) ($account['fetchedat'] ?? 0) > time() - self::CACHE_TTL || self::is_paused()) {
+            return true;
+        }
+        try {
+            $account = self::refresh();
+        } catch (\Throwable $e) {
+            // Cannot tell; let the grading call find out (a 402 costs nothing).
+            return false;
+        }
+        return (int) ($account['sheetsRemaining'] ?? 0) < 1;
     }
 
     /**

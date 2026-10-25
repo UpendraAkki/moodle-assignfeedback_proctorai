@@ -17,13 +17,15 @@
 {{!
     @template assignfeedback_proctorai/grader_panel
 
-    The Proctor AI result in the grader: total, per-question table and the "Use AI grade" button.
+    The Proctor AI result in the grader: total, per-question table with editable marks, and the "Use AI grade" button.
 
     Classes required for JS:
     * none
 
     Data attributes required for JS:
     * data-region="assignfeedback_proctorai-status"
+    * data-region="assignfeedback_proctorai-total"
+    * data-region="assignfeedback_proctorai-mark", with data-index and data-max
     * data-action="assignfeedback_proctorai-usegrade"
 
     Context variables required for this template:
@@ -31,12 +33,13 @@
     * status - Job status code
     * statuslabel - Job status text
     * errormessage - Why the job stopped
+    * notsent - Which submitted files were not sent to Proctor AI, and why
     * hasresult - Whether there is a result
-    * earned, maxmarks, percentage - The AI total
+    * earned, maxmarks, percentage - The total, with any teacher changes
     * reviewcount, needsreview - Questions flagged for review
     * canusegrade, suggestedgrade, suggestedgraderaw, maxgrade - The grade button
     * percentonly - The assignment uses a scale or advanced grading
-    * prefilled, approved, pagecount
+    * prefilled, approved, pagecount, editable
     * questions - Per-question rows
 
     Example context (json):
@@ -45,6 +48,7 @@
         "status": "done",
         "statuslabel": "Graded by AI",
         "errormessage": "",
+        "notsent": "",
         "hasresult": true,
         "earned": "7",
         "maxmarks": "10",
@@ -59,11 +63,18 @@
         "prefilled": true,
         "approved": false,
         "pagecount": 2,
+        "editable": true,
         "questions": [
             {
+                "index": 0,
                 "label": "1",
                 "earned": "2",
+                "markraw": 2,
                 "max": "2",
+                "maxraw": 2,
+                "aiearned": "2",
+                "edited": false,
+                "editable": true,
                 "feedback": "Correct.",
                 "studentanswer": "Paris",
                 "reasoning": "Matches the expected answer.",
@@ -72,9 +83,15 @@
                 "reviewreason": ""
             },
             {
+                "index": 1,
                 "label": "2a",
-                "earned": "0",
+                "earned": "1",
+                "markraw": 1,
                 "max": "3",
+                "maxraw": 3,
+                "aiearned": "0",
+                "edited": true,
+                "editable": true,
                 "feedback": "Working is unclear.",
                 "studentanswer": "x = 4?",
                 "reasoning": "The final line is hard to read.",
@@ -92,10 +109,13 @@
             <span class="badge bg-secondary">{{statuslabel}}</span>
             {{#errormessage}}<span class="text-danger small d-block">{{errormessage}}</span>{{/errormessage}}
         </p>
+        {{#notsent}}
+            <div class="alert alert-warning py-1 px-2 mb-2 small" data-region="assignfeedback_proctorai-notsent">{{notsent}}</div>
+        {{/notsent}}
         {{#hasresult}}
             <p class="mb-1">
                 <strong>{{#str}} aitotal, assignfeedback_proctorai {{/str}}</strong>
-                {{earned}} / {{maxmarks}} ({{percentage}}%)
+                <span data-region="assignfeedback_proctorai-total">{{earned}}</span> / {{maxmarks}} ({{percentage}}%)
                 {{#pagecount}}<span class="text-muted small">&middot; {{#str}} pagesn, assignfeedback_proctorai, {{pagecount}} {{/str}}</span>{{/pagecount}}
             </p>
             {{#needsreview}}
@@ -113,6 +133,9 @@
             {{#percentonly}}
                 <p class="text-muted small mb-2">{{#str}} percentonlynote, assignfeedback_proctorai {{/str}}</p>
             {{/percentonly}}
+            {{#editable}}
+                <p class="text-muted small mb-2">{{#str}} editmarksnote, assignfeedback_proctorai {{/str}}</p>
+            {{/editable}}
             {{^approved}}
                 <p class="text-muted small mb-2">{{#str}} draftnote, assignfeedback_proctorai {{/str}}</p>
             {{/approved}}
@@ -130,7 +153,15 @@
                         {{#questions}}
                             <tr class="{{#needsreview}}table-warning{{/needsreview}}">
                                 <th scope="row">{{label}}</th>
-                                <td class="text-nowrap">{{earned}} / {{max}}</td>
+                                <td class="text-nowrap">
+                                    {{#editable}}
+                                        <label class="visually-hidden" for="{{panelid}}_mark{{index}}">{{#str}} markforquestion, assignfeedback_proctorai, {{label}} {{/str}}</label>
+                                        <input type="number" id="{{panelid}}_mark{{index}}" class="form-control form-control-sm d-inline-block w-auto" style="max-width: 5.5em" min="0" max="{{maxraw}}" step="any" value="{{markraw}}" data-region="assignfeedback_proctorai-mark" data-index="{{index}}" data-max="{{maxraw}}">
+                                        / {{max}}
+                                    {{/editable}}
+                                    {{^editable}}{{earned}} / {{max}}{{/editable}}
+                                    {{#edited}}<div class="text-muted">{{#str}} aimark, assignfeedback_proctorai, {{aiearned}} {{/str}}</div>{{/edited}}
+                                </td>
                                 <td>
                                     {{#needsreview}}<div class="fw-bold">{{#str}} needsreview, assignfeedback_proctorai {{/str}}{{#reviewreason}}: {{reviewreason}}{{/reviewreason}}</div>{{/needsreview}}
                                     {{#studentanswer}}<div><span class="text-muted">{{#str}} studentanswer, assignfeedback_proctorai {{/str}}</span> {{studentanswer}}</div>{{/studentanswer}}

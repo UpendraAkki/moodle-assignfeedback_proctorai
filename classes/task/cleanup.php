@@ -74,16 +74,31 @@ class cleanup extends \core\task\scheduled_task {
                 'cutoff' => $now - self::STUCK_AFTER,
             ]
         );
-        foreach ($stuck as $job) {
-            // Older than the API keeps idempotency records: a retry could be charged again, so start clean.
-            $expired = $job->timestarted && $job->timestarted < $now - self::API_RETENTION;
-            mtrace("Proctor AI: requeueing stuck job {$job->id}.");
-            $job->status = job_manager::STATUS_QUEUED;
-            $DB->update_record('assignfeedback_proctorai_job', $job);
-            if ($expired) {
-                job_manager::requeue($job, true);
-            } else {
-                job_manager::schedule($job, $now);
+        $locks = \core\lock\lock_config::get_lock_factory('assignfeedback_proctorai');
+        foreach ($stuck as $stale) {
+            // A run holding the lock is not stuck, just slow; and the record must be read under the lock,
+            // or a job that finished meanwhile would be put back in the queue and sent again.
+            $lock = $locks->get_lock('job' . $stale->id, 0);
+            if (!$lock) {
+                continue;
+            }
+            try {
+                $job = $DB->get_record('assignfeedback_proctorai_job', ['id' => $stale->id]);
+                if (!$job || !in_array($job->status, [job_manager::STATUS_UPLOADING, job_manager::STATUS_GRADING], true)) {
+                    continue;
+                }
+                // Older than the API keeps idempotency records: a retry could be charged again, so start clean.
+                $expired = $job->timestarted && $job->timestarted < $now - self::API_RETENTION;
+                mtrace("Proctor AI: requeueing stuck job {$job->id}.");
+                $job->status = job_manager::STATUS_QUEUED;
+                $DB->update_record('assignfeedback_proctorai_job', $job);
+                if ($expired) {
+                    job_manager::requeue($job, true);
+                } else {
+                    job_manager::schedule($job, $now);
+                }
+            } finally {
+                $lock->release();
             }
         }
 

@@ -29,6 +29,34 @@
  * @return bool
  */
 function xmldb_assignfeedback_proctorai_upgrade($oldversion) {
-    // There are no upgrade steps yet: 0.1.0 is the first release.
+    global $DB;
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2026102300) {
+        // Remember that a batch's completion notice was sent, so it is sent only once.
+        $table = new xmldb_table('assignfeedback_proctorai_job');
+        $field = new xmldb_field('batchnotified', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'uploadretries');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        // Batches that already ended had their notice sent.
+        $DB->execute("UPDATE {assignfeedback_proctorai_job}
+                         SET batchnotified = 1
+                       WHERE batchid IS NOT NULL AND status NOT IN ('queued', 'uploading', 'grading')");
+
+        upgrade_plugin_savepoint(true, 2026102300, 'assignfeedback', 'proctorai');
+    }
+
+    if ($oldversion < 2026102500) {
+        // Submitted files that were not sent to Proctor AI, so the teacher can check them by hand.
+        $table = new xmldb_table('assignfeedback_proctorai_job');
+        $field = new xmldb_field('notsent', XMLDB_TYPE_TEXT, null, null, null, null, null, 'errormessage');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026102500, 'assignfeedback', 'proctorai');
+    }
+
     return true;
 }

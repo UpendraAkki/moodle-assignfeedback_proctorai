@@ -63,11 +63,17 @@ class observer {
     protected static function handle(\core\event\base $event, bool $upload): void {
         global $DB;
 
-        if (!account::is_ready() || $event->contextlevel != CONTEXT_MODULE) {
+        // While paused, still queue: the job waits as "paused" and resuming sends it.
+        if (!account::is_configured() || $event->contextlevel != CONTEXT_MODULE) {
             return;
         }
         $submission = $DB->get_record('assign_submission', ['id' => $event->objectid]);
-        if (!$submission || empty($submission->userid)) {
+        if (!$submission) {
+            return;
+        }
+        // A group submission has no userid; queue it for the member who submitted.
+        $userid = (int) ($submission->userid ?: ($event->relateduserid ?: $event->userid));
+        if (!$userid) {
             return;
         }
         $cm = get_coursemodule_from_id('assign', $event->contextinstanceid, 0, false, IGNORE_MISSING);
@@ -86,6 +92,6 @@ class observer {
             return;
         }
         $delay = $drafts ? 0 : job_manager::DEBOUNCE;
-        job_manager::queue($assign, (int) $submission->userid, job_manager::ORIGIN_AUTO, 0, null, $delay);
+        job_manager::queue($assign, $userid, job_manager::ORIGIN_AUTO, 0, null, $delay);
     }
 }

@@ -30,6 +30,7 @@
     * accounterror - Why the balance could not be read
     * count, requested - Students to be graded, and asked for
     * skipped, hasskipped - Reasons students were left out
+    * team - Team submissions: one grading per group
     * price, cost, balance, sheets, hasaccount, insufficient - Billing
     * canqueue - Whether the button is enabled
     * actionurl, cmid, selectedusers, sesskey, cancelurl - The form
@@ -42,6 +43,7 @@
         "requested": 4,
         "skipped": [{"reason": "No submission yet", "count": 1}],
         "hasskipped": true,
+        "team": false,
         "price": "1",
         "cost": "3",
         "balance": "120",
@@ -69,6 +71,9 @@
                 {{/skipped}}
             </ul>
         {{/hasskipped}}
+        {{#team}}
+            <p class="text-muted">{{#str}} teamnote, assignfeedback_proctorai {{/str}}</p>
+        {{/team}}
         {{#accounterror}}
             <div class="alert alert-danger">{{#str}} statuserror, assignfeedback_proctorai, {{accounterror}} {{/str}}</div>
         {{/accounterror}}
