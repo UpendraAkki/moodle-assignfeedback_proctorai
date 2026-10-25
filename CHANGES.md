@@ -1,6 +1,6 @@
 # Changes
 
-## 0.2.0 (2026-10-23), beta
+## 0.2.0 (2026-10-25), beta
 
 New:
 
@@ -11,9 +11,19 @@ New:
 - **Group submissions.** Graded once per group (one charge); the result goes to every member.
 - **Upload method setting.** *Direct* (the default) uses presigned uploads. *Inline* sends photos inside the grading request, up to 4 MB, for sites that block the upload storage.
 - **Staging headers.** `$CFG->assignfeedback_proctorai_extraheaders` (config.php only) adds headers for a staging server behind an access gate.
+- **Files that can't be read are named.** A submitted file of the wrong type, over the size limit or empty is left out as before, but the grader and the status page now say which file and why, so the teacher marks it by hand.
+- **Guides in plain English** for administrators, teachers and students, a "What if…?" page and a privacy page, in `docs/`.
 - Behat features against a fake API served by the test site, plugin icon, screenshots, and a plugins-directory checklist in the README.
 
 Fixed:
+
+- After a teacher approved or released a result, automatic grading of a resubmission replaced it and the student saw unreviewed AI marks. Approved and released attempts are no longer graded automatically; a teacher's own re-grade makes the result a draft again; a released grade can't be sent again until its workflow state moves back.
+- A teacher's **Retry** after a network, server or site error resends the same request, so a grading that had in fact finished is not charged twice.
+- An automatic and a teacher's request for the same submission at the same moment could create two charged gradings.
+- Cancel and the stuck-job cleanup could act on a job that had just started or finished.
+- Bulk actions, retry, cancel and the status web service now act only on students in groups the teacher can see.
+- The API key could follow a redirect to another host, and could be sent over plain http. Redirects are no longer followed and the API URL must use https.
+- The privacy export now includes the student's grading requests, not only the result.
 
 - Submissions made while grading was paused are now graded after the resume, instead of being skipped.
 - The "grading finished" notice is sent once per batch. Before, a batch that hit a rejected key sent it twice.

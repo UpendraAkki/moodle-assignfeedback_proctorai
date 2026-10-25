@@ -8,6 +8,14 @@
 - Status: beta (0.2.0)
 - Licence: GNU GPL v3 or later
 
+**Guides in plain English** (start here if you are not a developer):
+
+- [Getting started for administrators](docs/admin-guide.md)
+- [Teacher guide](docs/teacher-guide.md)
+- [What students see](docs/student-guide.md), to share with a class
+- [What if…? Questions and unusual cases](docs/faq.md)
+- [Privacy and data](docs/privacy.md)
+
 ## Installation
 
 1. Copy this repository to `mod/assign/feedback/proctorai` in your Moodle code (on Moodle 5.1 and later, `public/mod/assign/feedback/proctorai`), or install the ZIP from *Site administration > Plugins > Install plugins*.
@@ -70,7 +78,9 @@ The marking key is never shown to students, including through the mobile app and
 | Proctor AI rejects the API key | Pauses AI grading site-wide and notifies administrators. Submissions made while paused wait. Saving a new key resumes them and the queued gradings. If the same key works again, opening the plugin settings page checks it and resumes. The teacher gets one "finished" notice per batch, after the resume. |
 | The balance runs out | Stops, marks the submissions "balance ran out" and notifies administrators and the teacher (at most every 6 hours). The balance is checked again after 5 minutes, and on the settings and status pages, so grading resumes soon after a top-up. |
 | A page is unreadable, or there are more than 20 pages | Marks that submission as failed and shows Proctor AI's reason to the teacher. |
-| Proctor AI is busy or unreachable | Retries later with backoff, up to the *Attempts per submission* setting. Retries are never charged twice. |
+| A submitted file can't be read (wrong type, over the size limit, empty) | Grades the rest, and names the file and the reason in the grader and on the status page, so the teacher marks it by hand. |
+| A teacher already approved or released the AI result | Automatic grading doesn't grade that attempt again. A teacher's own re-grade makes the new result a draft until approved. A released grade (marking workflow) can't be sent again until its state moves back. |
+| Proctor AI is busy or unreachable | Retries later with backoff, up to the *Attempts per submission* setting. Retries are never charged twice, and neither is a teacher's **Retry** after such a failure (it resends the same request). |
 | The student changes the submission after it was queued | That grading is dropped; with automatic grading, the new version is queued. |
 
 ## Privacy
@@ -82,7 +92,7 @@ When an administrator ticks the consent box, the plugin sends Proctor AI, for ea
 
 **Student names, emails and IDs are not sent.** Proctor AI deletes uploaded files within 72 hours. The AI result is stored in Moodle (`assignfeedback_proctorai`), linked to the student's grade; the request queue (`assignfeedback_proctorai_job`) is cleaned up after 90 days. The plugin implements Moodle's Privacy API, including export and deletion, and declares Proctor AI as an external location.
 
-Check that sending student work to Proctor AI agrees with your institution's data protection policy before giving consent.
+Check that sending student work to Proctor AI agrees with your institution's data protection policy before giving consent. Proctor AI's [privacy policy](https://www.proctorai.io/privacy) and [terms](https://www.proctorai.io/terms) apply. More detail: [Privacy and data](docs/privacy.md).
 
 ## Capabilities
 
@@ -91,7 +101,9 @@ Check that sending student work to Proctor AI agrees with your institution's dat
 
 ## Development
 
-The plugin talks to the API documented at <https://agent.proctorai.io/developers> (`GET /account`, `POST /uploads`, then a `PUT` per file, then `POST /grade` with an `Idempotency-Key`). All HTTP goes through Moodle's `\curl`, so proxy settings and the blocked-hosts list apply.
+The plugin talks to the API documented at <https://agent.proctorai.io/developers> (`GET /account`, `POST /uploads`, then a `PUT` per file, then `POST /grade` with an `Idempotency-Key`). All HTTP goes through Moodle's `\curl`, so proxy settings and the blocked-hosts list apply. Redirects are not followed, and the API key is only sent over https (or plain http to localhost, for tests).
+
+Bulk actions, retry and cancel, and the status web service act only on students in groups the current user can see.
 
 Run the tests inside a Moodle checkout:
 
@@ -131,10 +143,11 @@ What the [plugins directory](https://moodledev.io/general/community/plugincontri
 - [x] No data sent until the administrator consents; capabilities for sending data carry `RISK_PERSONAL`.
 - [x] Backup and restore, PHPUnit and Behat tests, moodle-plugin-ci passing on Moodle 4.5, 5.0 and 5.3 (phpcs and phpdoc with no warnings, savepoints, mustache, grunt, PHPUnit, Behat).
 - [x] Icon (`pix/icon.svg`, `pix/monologo.svg`) and screenshots (`pix/screenshots`): settings, marking-key editor, grader panel, status page, student view.
-- [ ] A 512×512 logo to upload with the listing. The directory takes it separately; it is not in the repository.
+- [x] A 512×512 logo to upload with the listing: `docs/listing/logo-512.png`.
+- [x] Listing text, the paid account requirement, and links to the privacy policy and terms: `docs/listing/listing.md`.
+- [x] Tag the release (`v0.2.0`) and attach the ZIP to the GitHub release. It is built with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
 - [ ] A reviewer test key (`pai_test_`) to give the plugins team in the approval issue, never in the repository.
-- [ ] Tag the release (`v0.2.0`) and upload the ZIP. Build it with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
-- [ ] Listing text: short description, the paid account requirement, and links to the privacy policy and terms on agent.proctorai.io.
+- [ ] Register the plugin at <https://moodle.org/plugins> and upload the ZIP, logo and screenshots.
 
 ## Licence
 
