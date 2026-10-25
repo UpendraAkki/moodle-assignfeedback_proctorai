@@ -1,6 +1,6 @@
-# Moodle plugins directory listing
+# Moodle Marketplace listing
 
-Everything to paste into the plugin's page at <https://moodle.org/plugins>. Upload `logo-512.png` (in this folder) as the logo and the six images in `pix/screenshots` as screenshots, in the order given below.
+Everything to paste into the plugin's page on [Moodle Marketplace](https://marketplace.moodle.com/) (the moodle.org plugins directory closed in July 2026). The Marketplace requires this plugin to be listed as paid and sold there, because it depends on Proctor AI's paid service; until that is set up, the plugin is offered at <https://www.proctorai.io/moodle-ai-grading-plugin>. Upload `logo-512.png` (in this folder) as the logo and the six images in `pix/screenshots` as screenshots, in the order given below.
 
 ## Plugin name
 

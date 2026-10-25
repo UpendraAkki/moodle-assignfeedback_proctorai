@@ -9,11 +9,10 @@ This guide takes about 15 minutes. You need:
 
 ## Step 1: Install the plugin
 
-Choose one:
+1. Download the plugin ZIP from [proctorai.io/moodle-ai-grading-plugin](https://www.proctorai.io/moodle-ai-grading-plugin).
+2. In Moodle, go to *Site administration > Plugins > Install plugins* and upload the ZIP.
 
-- **From the Moodle plugins directory:** *Site administration > Plugins > Install plugins*, search for "Proctor AI", then install.
-- **From a ZIP file:** *Site administration > Plugins > Install plugins*, upload `assignfeedback_proctorai.zip`.
-- **By copying files:** put the plugin folder at `mod/assign/feedback/proctorai` (on Moodle 5.1 and later: `public/mod/assign/feedback/proctorai`).
+Prefer copying files? Unzip it so the plugin folder is at `mod/assign/feedback/proctorai` (on Moodle 5.1 and later: `public/mod/assign/feedback/proctorai`).
 
 Then open *Site administration > Notifications* and click **Upgrade Moodle database now**.
 

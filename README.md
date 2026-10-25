@@ -20,7 +20,7 @@
 
 ## Installation
 
-1. Copy this repository to `mod/assign/feedback/proctorai` in your Moodle code (on Moodle 5.1 and later, `public/mod/assign/feedback/proctorai`), or install the ZIP from *Site administration > Plugins > Install plugins*.
+1. Download the ZIP from [proctorai.io/moodle-ai-grading-plugin](https://www.proctorai.io/moodle-ai-grading-plugin) and install it from *Site administration > Plugins > Install plugins*. Or copy this repository to `mod/assign/feedback/proctorai` in your Moodle code (on Moodle 5.1 and later, `public/mod/assign/feedback/proctorai`).
 2. Visit *Site administration > Notifications* to finish the installation.
 3. Go to *Site administration > Plugins > Activity modules > Assignment > Feedback plugins > Proctor AI grading* and:
    - paste your **API key** (create one in your Proctor AI account under *Settings > API keys*);
@@ -133,9 +133,11 @@ $CFG->assignfeedback_proctorai_extraheaders = [
 
 These headers are sent only to the API URL, never to the presigned upload URLs, and they cannot replace the plugin's own `Authorization`, `Content-Type`, `Accept` or `Idempotency-Key` headers. Treat the value as a secret: keep it out of version control and remove it on production sites.
 
-## Moodle plugins directory submission
+## Distribution
 
-What the [plugins directory](https://moodledev.io/general/community/plugincontribution/checklist) asks for, and where it is:
+The plugin is distributed from <https://www.proctorai.io/moodle-ai-grading-plugin> and GitHub releases. The moodle.org plugins directory closed in July 2026; listings now go to Moodle Marketplace, which requires a plugin that depends on a paid service from its own provider to be listed as paid and sold through the Marketplace. That listing is planned.
+
+What a Moodle Marketplace review checks ([submission guidelines](https://moodle.atlassian.net/wiki/external/ODRhYjAyNTY4NDVmNGJlNjljN2ViMzkwYzdmYmIwMGI)), and where it is:
 
 - [x] Frankenstyle name `assignfeedback_proctorai`, GPL v3 or later licence (`LICENSE`), GPL header and `@package` in every file.
 - [x] `version.php` with `requires` 4.5, `supported` [405, 503], maturity and release.
@@ -149,7 +151,7 @@ What the [plugins directory](https://moodledev.io/general/community/plugincontri
 - [x] Listing text, the paid account requirement, and links to the privacy policy and terms: `docs/listing/listing.md`.
 - [ ] Tag the release (`v0.2.0`) and attach the ZIP to the GitHub release. It is built with `git archive --prefix=proctorai/ -o assignfeedback_proctorai.zip v0.2.0`; the folder inside must be named `proctorai`.
 - [ ] A reviewer test key (`pai_test_`) to give the plugins team in the approval issue, never in the repository.
-- [ ] Register the plugin at <https://moodle.org/plugins> and upload the ZIP, logo and screenshots.
+- [ ] Moodle Marketplace: a paid listing sold through the Marketplace (Stripe Connect), with credits granted to the buyer's Proctor AI account, and no in-plugin links to buy elsewhere.
 
 ## Licence
 

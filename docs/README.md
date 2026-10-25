@@ -35,6 +35,10 @@ Students never see anything the teacher has not approved. Grades that a teacher 
 | ![The status page](../pix/screenshots/status-page.png) | ![What a student sees](../pix/screenshots/student-view.png) |
 | The status page lists every student's grading, with Retry and Cancel. | After release, students see their marks per question and the feedback. |
 
+## Download
+
+Get the plugin, free, at [proctorai.io/moodle-ai-grading-plugin](https://www.proctorai.io/moodle-ai-grading-plugin).
+
 ## Help
 
 - Problems with the plugin: [open an issue on GitHub](https://github.com/UpendraAkki/moodle-assignfeedback_proctorai/issues).
