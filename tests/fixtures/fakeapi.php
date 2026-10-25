@@ -136,6 +136,11 @@ if ($route === '/grade' && $method === 'POST') {
     $earned = 0.0;
     $max = 0.0;
     $n = 0;
+    // "Read as" echoes the student's own typed sentences, one per row, so screenshots look real.
+    $sentences = array_values(array_filter(array_map('trim', preg_split(
+        '/(?<=[.!?])\s+/',
+        (string) ($body['answerSheetText'] ?? '')
+    ))));
     foreach ((array) ($body['questions'] ?? []) as $question) {
         $parts = $question['subQuestions'] ?? [$question + ['label' => null]];
         foreach ($parts as $part) {
@@ -152,12 +157,14 @@ if ($route === '/grade' && $method === 'POST') {
                 'max' => $partmax,
                 'status' => 'answered',
                 'feedback' => $review ? 'Partly right.' : 'Correct.',
-                'reasoning' => 'Fake API result.',
-                'studentAnswer' => 'Sample answer',
+                'reasoning' => $review
+                    ? 'Gives part of the explanation, but some marking points are missing.'
+                    : 'Matches the expected answer.',
+                'studentAnswer' => $sentences[$n - 1] ?? ($part['expectedAnswer'] ?? 'Answer on page 1'),
                 'pages' => [1],
                 'confidence' => $review ? 0.4 : 0.95,
                 'needsReview' => $review,
-                'reviewReason' => $review ? 'Sample review reason' : null,
+                'reviewReason' => $review ? 'Only some marking points are covered' : null,
             ];
         }
     }
@@ -169,8 +176,8 @@ if ($route === '/grade' && $method === 'POST') {
         'rollNumber' => null,
         'marks' => ['earned' => $earned, 'max' => $max, 'percentage' => $max > 0 ? round($earned / $max * 100, 2) : 0],
         'questions' => $rows,
-        'strengths' => ['Clear answers'],
-        'improvements' => ['Show your working'],
+        'strengths' => ['Uses the correct key terms'],
+        'improvements' => ['Explain each step of the process in more detail'],
         'overallFeedback' => 'A good attempt.',
         'pageCount' => count((array) ($body['files'] ?? $body['pages'] ?? [])),
         'billing' => ['gradingsCharged' => 1, 'balance' => $remaining],

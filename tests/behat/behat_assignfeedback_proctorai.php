@@ -94,6 +94,18 @@ class behat_assignfeedback_proctorai extends behat_base {
     }
 
     /**
+     * Give the test site a realistic name, for the plugins-directory screenshots.
+     *
+     * @Given /^the Moodle site is called "(?P<name>[^"]+)"$/
+     * @param string $name The site's full and short name.
+     */
+    public function the_moodle_site_is_called(string $name): void {
+        global $DB;
+        $DB->update_record('course', (object) ['id' => SITEID, 'fullname' => $name, 'shortname' => $name]);
+        rebuild_course_cache(SITEID, true);
+    }
+
+    /**
      * Set the fake API's balance.
      *
      * @Given /^the fake Proctor AI balance is "(?P<balance>\d+)"$/
