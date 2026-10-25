@@ -136,7 +136,7 @@ if ($route === '/grade' && $method === 'POST') {
     $earned = 0.0;
     $max = 0.0;
     $n = 0;
-    // "Read as" echoes the student's own typed sentences, one per row, so screenshots look real.
+    // The Read as text echoes the student's own typed sentences, one per row, so screenshots look real.
     $sentences = array_values(array_filter(array_map('trim', preg_split(
         '/(?<=[.!?])\s+/',
         (string) ($body['answerSheetText'] ?? '')
