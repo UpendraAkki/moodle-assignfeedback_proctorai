@@ -6,8 +6,8 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
 
   Background:
     Given the following "courses" exist:
-      | fullname | shortname |
-      | Course 1 | C1        |
+      | fullname       | shortname |
+      | Year 9 Science | C1        |
     And the following "users" exist:
       | username | firstname | lastname | email                |
       | teacher1 | Terry     | Teacher  | teacher1@example.com |
@@ -17,60 +17,61 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
       | teacher1 | C1     | editingteacher |
       | student1 | C1     | student        |
     And Proctor AI uses the fake API
+    And the Moodle site is called "Greenwood School"
     And the following "activities" exist:
-      | activity | course | name     | assignsubmission_onlinetext_enabled | assignfeedback_proctorai_enabled | markingworkflow | submissiondrafts | grade |
-      | assign   | C1     | Assign 1 | 1                                   | 1                                | 0               | 0                | 100   |
-    And the Proctor AI marking key of "Assign 1" is:
+      | activity | course | name                    | assignsubmission_onlinetext_enabled | assignfeedback_proctorai_enabled | markingworkflow | submissiondrafts | grade |
+      | assign   | C1     | Photosynthesis homework | 1                                   | 1                                | 0               | 0                | 100   |
+    And the Proctor AI marking key of "Photosynthesis homework" is:
       """
-      1. Name the capital of France. [4]
-      Answer: Paris
-      2. Explain photosynthesis. [6]
+      1. Name the gas plants take in during photosynthesis. [4]
+      Answer: Carbon dioxide
+      2. Explain why plants need sunlight. [6]
       """
 
   Scenario: Add a question in the structured editor and see the total against the maximum grade
-    Given I am on the "Assign 1" "assign activity editing" page logged in as "teacher1"
+    Given I am on the "Photosynthesis homework" "assign activity editing" page logged in as "teacher1"
     And I expand all fieldsets
     And I should see "Total marks: 10 / 100"
     When I press "Add a question"
-    And I set the field with xpath "//textarea[@id='keyeditor_q2_prompt']" to "Name a prime number."
+    And I set the field with xpath "//textarea[@id='keyeditor_q2_prompt']" to "Which gas do plants give out?"
     And I set the field with xpath "//input[@id='keyeditor_q2_marks']" to "2"
-    And I set the field with xpath "//input[@id='keyeditor_q2_options']" to "4 | 7 | 9"
+    And I set the field with xpath "//input[@id='keyeditor_q2_options']" to "Oxygen | Nitrogen | Hydrogen"
     Then I should see "Total marks: 12 / 100"
     And I save a Proctor AI screenshot named "markingkey-editor" showing "[data-region='keyeditor-total']"
     And I press "Edit as text"
     And the field "assignfeedback_proctorai_markingkey" matches multiline:
       """
-      1. Name the capital of France. [4]
-      Answer: Paris
-      2. Explain photosynthesis. [6]
-      3. Name a prime number. [2]
-      Options: 4 | 7 | 9
+      1. Name the gas plants take in during photosynthesis. [4]
+      Answer: Carbon dioxide
+      2. Explain why plants need sunlight. [6]
+      3. Which gas do plants give out? [2]
+      Options: Oxygen | Nitrogen | Hydrogen
       """
     And I press "Save and display"
-    And I am on the "Assign 1" "assign activity editing" page
+    And I am on the "Photosynthesis homework" "assign activity editing" page
     And I expand all fieldsets
     And I should see "Total marks: 12 / 100"
 
   Scenario: Change a mark in the grader; the total and grade follow, and the student sees the marks once saved
     Given the following "mod_assign > submissions" exist:
-      | assign   | user     | onlinetext                              |
-      | Assign 1 | student1 | Paris. Plants make food from sunlight. |
-    And I am on the Proctor AI "gradeall" page for "Assign 1" as "teacher1"
+      | assign                  | user     | onlinetext                                                              |
+      | Photosynthesis homework | student1 | Carbon dioxide. Plants need sunlight for energy to make their own food. |
+    And I am on the Proctor AI "gradeall" page for "Photosynthesis homework" as "teacher1"
     And I save a Proctor AI screenshot named "confirm-page"
     And I press "Grade with Proctor AI (1)"
     And I run the Proctor AI grading tasks
-    And I am on the Proctor AI "status" page for "Assign 1" as "teacher1"
+    And I am on the Proctor AI "status" page for "Photosynthesis homework" as "teacher1"
     And I save a Proctor AI screenshot named "status-page"
-    When I am on the grader for "student1" in "Assign 1"
+    When I am on the grader for "student1" in "Photosynthesis homework"
     And I should see "AI total:"
-    And I should see "Sample review reason"
+    And I should see "Only some marking points are covered"
     And I save a Proctor AI screenshot named "grader-panel" showing ".assignfeedback_proctorai_panel"
     And I set the field "Mark for question 2" to "5"
     Then I should see "9" in the "[data-region='assignfeedback_proctorai-total']" "css_element"
     And the field with xpath "//input[@name='grade']" matches value "90"
     And I press "Save changes"
     And I should see "The changes to the grade and feedback were saved"
-    And I am on the "Assign 1" "assign activity" page logged in as "student1"
+    And I am on the "Photosynthesis homework" "assign activity" page logged in as "student1"
     And I should see "Marks per question"
     And I should see "5 / 6"
     And I should see "A good attempt."
