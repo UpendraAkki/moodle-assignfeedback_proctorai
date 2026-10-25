@@ -26,7 +26,8 @@
     * none
 
     Context variables required for this template:
-    * rows, hasrows - One row per student with a job, with jobid, canretry, cancancel, hasactions
+    * rows, hasrows - One row per student with a job, with jobid, canretry, cancancel, hasactions,
+      and notsent (submitted files not sent to Proctor AI)
     * summary - Count per status
     * hasbalance, balance, sheets, price, lowbalance, nobalance - The balance, fetched fresh
     * paused - Whether the plugin is paused site-wide
@@ -41,6 +42,7 @@
                 "status": "nobalance",
                 "statuslabel": "Not graded: balance ran out",
                 "error": "Buy more gradings.",
+                "notsent": "",
                 "marks": "",
                 "reviewcount": 0,
                 "approved": false,
@@ -111,6 +113,7 @@
                             <td>
                                 {{statuslabel}}
                                 {{#error}}<div class="small text-danger">{{error}}</div>{{/error}}
+                                {{#notsent}}<div class="small text-warning-emphasis">{{notsent}}</div>{{/notsent}}
                             </td>
                             <td>
                                 {{marks}}

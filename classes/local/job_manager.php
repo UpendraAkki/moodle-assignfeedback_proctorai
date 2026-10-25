@@ -62,6 +62,17 @@ class job_manager {
     /** @var string[] Error codes that mean the uploads expired or never landed: worth one fresh upload. */
     const UPLOAD_ERRORS = ['upload_not_found', 'upload_incomplete', 'upload_failed'];
 
+    /**
+     * @var string[] Failures after which the request may already have been graded and charged:
+     * resending it with the same idempotency key replays that result instead of paying again.
+     */
+    const RESENDABLE_ERRORS = [
+        'internal', 'toomanyattempts', 'network_error', 'bad_response', 'unavailable', 'grading_failed',
+    ];
+
+    /** @var int Seconds Proctor AI keeps a request's result for its idempotency key (72 hours), less a margin. */
+    const API_REPLAY_WINDOW = 70 * HOURSECS;
+
     /** @var int Seconds an upload-triggered job waits for more uploads before it starts. */
     const DEBOUNCE = 10 * MINSECS;
 
@@ -163,6 +174,9 @@ class job_manager {
         if (self::active_job_for_submission($assign, $submission)) {
             return 'alreadyqueued';
         }
+        if (self::is_released($assign, $userid)) {
+            return 'released';
+        }
         $collected = submission_collector::collect($assign, $submission);
         if (!$collected->files && $collected->text === '') {
             return 'nothingtograde';
@@ -171,6 +185,19 @@ class job_manager {
             return 'toomanyfiles';
         }
         return null;
+    }
+
+    /**
+     * Whether marking workflow has released this student's grade. A new AI result would then
+     * show at once, so a teacher must move the workflow state back before grading again.
+     *
+     * @param \assign $assign The assignment.
+     * @param int $userid The student.
+     * @return bool
+     */
+    public static function is_released(\assign $assign, int $userid): bool {
+        return !empty($assign->get_instance()->markingworkflow)
+            && $assign->get_grading_status($userid) === ASSIGN_MARKING_WORKFLOW_STATE_RELEASED;
     }
 
     /**
@@ -253,14 +280,59 @@ class job_manager {
         ?string $batchid = null,
         int $delay = 0
     ): ?\stdClass {
-        global $DB;
-
         $waitforresume = $origin === self::ORIGIN_AUTO && account::is_paused();
         if (self::assignment_blocker($assign, $waitforresume) !== null) {
             return null;
         }
         $submission = self::submission_for($assign, $userid);
         if (!$submission || $submission->status !== ASSIGN_SUBMISSION_STATUS_SUBMITTED) {
+            return null;
+        }
+        // An automatic and a teacher's request for the same submission at the same moment must
+        // not both insert a job: each would have its own idempotency key, and be charged.
+        $lock = \core\lock\lock_config::get_lock_factory('assignfeedback_proctorai')
+            ->get_lock('submission' . $submission->id, 10);
+        if (!$lock) {
+            return null;
+        }
+        try {
+            return self::queue_locked($assign, $submission, $userid, $origin, $requestedby, $batchid, $delay, $waitforresume);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The body of queue(), with the submission lock held.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The submission to grade.
+     * @param int $userid The student.
+     * @param string $origin One of the ORIGIN_ constants.
+     * @param int $requestedby The user asking, or 0 for automatic grading.
+     * @param string|null $batchid Groups jobs for the completion notice.
+     * @param int $delay Seconds before the job may start.
+     * @param bool $waitforresume Record the job as waiting for the plugin to be resumed.
+     * @return \stdClass|null The job, or null if it could not be queued.
+     */
+    protected static function queue_locked(
+        \assign $assign,
+        \stdClass $submission,
+        int $userid,
+        string $origin,
+        int $requestedby,
+        ?string $batchid,
+        int $delay,
+        bool $waitforresume
+    ): ?\stdClass {
+        global $DB;
+
+        if ($origin === self::ORIGIN_AUTO && result_applier::is_reviewed($assign, $userid, (int) $submission->attemptnumber)) {
+            // A teacher has approved or released this attempt's result: an automatic re-grade
+            // must not replace what the student sees. A teacher can still ask for one.
+            return null;
+        }
+        if (self::is_released($assign, $userid)) {
             return null;
         }
         $collected = submission_collector::collect($assign, $submission);
@@ -408,7 +480,43 @@ class job_manager {
         if (self::user_blocker($assign, (int) $job->userid) !== null) {
             return null;
         }
+        if (self::can_resend($job)) {
+            // Proctor AI may already have graded and charged this request (the failure was on
+            // the way back, or on this site). The same key replays that result instead of paying again.
+            $job->requestedby = $requestedby;
+            self::requeue($job, false);
+            return $job;
+        }
         return self::queue($assign, (int) $job->userid, self::ORIGIN_MANUAL, $requestedby);
+    }
+
+    /**
+     * Whether a stopped job can be sent again with its own idempotency key: it failed after its
+     * request may have reached Proctor AI, the request is still stored, the submission has not
+     * changed, and Proctor AI still remembers the key.
+     *
+     * @param \stdClass $job The stopped job.
+     * @return bool
+     */
+    protected static function can_resend(\stdClass $job): bool {
+        if ($job->status !== self::STATUS_FAILED || empty($job->requestjson) || empty($job->timestarted)) {
+            return false;
+        }
+        if ((int) $job->timestarted < time() - self::API_REPLAY_WINDOW) {
+            return false;
+        }
+        if (!in_array((string) $job->errorcode, self::RESENDABLE_ERRORS, true)) {
+            return false;
+        }
+        $assign = self::load_assign((int) $job->assignment);
+        $submission = $assign ? self::submission_for($assign, (int) $job->userid) : null;
+        if (
+            !$submission || (int) $submission->id !== (int) $job->submission
+                || (int) $submission->attemptnumber !== (int) $job->attempt
+        ) {
+            return false;
+        }
+        return submission_collector::collect($assign, $submission)->hash === $job->submissionhash;
     }
 
     /**
@@ -419,18 +527,31 @@ class job_manager {
      */
     public static function cancel(\stdClass $job): bool {
         global $DB, $USER;
-        $cancellable = $job->status === self::STATUS_QUEUED && $job->timestarted === null;
-        $pausedwait = $job->status === self::STATUS_FAILED && in_array($job->errorcode, self::PAUSE_ERRORS, true);
-        if (!$cancellable && !$pausedwait) {
+        // A run that holds the job lock may already be sending it: then it is too late to cancel.
+        $lock = \core\lock\lock_config::get_lock_factory('assignfeedback_proctorai')->get_lock('job' . $job->id, 0);
+        if (!$lock) {
             return false;
         }
-        $job->status = self::STATUS_CANCELLED;
-        $job->errorcode = 'cancelled';
-        $job->errormessage = get_string('cancelledby', 'assignfeedback_proctorai', fullname($USER));
-        $job->requestjson = null;
-        $job->timecompleted = time();
-        $job->timemodified = time();
-        $DB->update_record('assignfeedback_proctorai_job', $job);
+        try {
+            $job = $DB->get_record('assignfeedback_proctorai_job', ['id' => $job->id]);
+            if (!$job) {
+                return false;
+            }
+            $cancellable = $job->status === self::STATUS_QUEUED && $job->timestarted === null;
+            $pausedwait = $job->status === self::STATUS_FAILED && in_array($job->errorcode, self::PAUSE_ERRORS, true);
+            if (!$cancellable && !$pausedwait) {
+                return false;
+            }
+            $job->status = self::STATUS_CANCELLED;
+            $job->errorcode = 'cancelled';
+            $job->errormessage = get_string('cancelledby', 'assignfeedback_proctorai', fullname($USER));
+            $job->requestjson = null;
+            $job->timecompleted = time();
+            $job->timemodified = time();
+            $DB->update_record('assignfeedback_proctorai_job', $job);
+        } finally {
+            $lock->release();
+        }
         self::maybe_notify_batch($job);
         return true;
     }
@@ -440,9 +561,10 @@ class job_manager {
      *
      * @param \assign $assign The assignment.
      * @param int $requestedby The teacher.
+     * @param callable|null $filter Narrows the student ids to those the teacher may act on (their groups).
      * @return array As queue_batch().
      */
-    public static function retry_nobalance(\assign $assign, int $requestedby): array {
+    public static function retry_nobalance(\assign $assign, int $requestedby, ?callable $filter = null): array {
         global $DB;
         $jobs = $DB->get_records('assignfeedback_proctorai_job', ['assignment' => $assign->get_instance()->id], 'id ASC');
         $latest = [];
@@ -454,6 +576,9 @@ class job_manager {
             if ($job->status === self::STATUS_NOBALANCE) {
                 $userids[] = (int) $job->userid;
             }
+        }
+        if ($filter) {
+            $userids = $filter($userids);
         }
         account::clear_cache();
         return self::queue_batch($assign, $userids, $requestedby);
@@ -604,7 +729,9 @@ class job_manager {
         } catch (\Throwable $e) {
             // Something on this site failed (database, file storage). Retry like a network error.
             if ($job->attempts >= $maxattempts) {
-                self::finish($job, self::STATUS_FAILED, 'internal', $e->getMessage());
+                // The details are for the administrator, not the teacher's status page.
+                debugging('Proctor AI job ' . $job->id . ': ' . $e->getMessage(), DEBUG_DEVELOPER);
+                self::finish($job, self::STATUS_FAILED, 'internal', get_string('internalerror', 'assignfeedback_proctorai'));
                 return;
             }
             self::set_status($job, self::STATUS_QUEUED);
@@ -639,6 +766,10 @@ class job_manager {
         }
         $plugin = $assign->get_feedback_plugin_by_type('proctorai');
         $key = marking_key::parse((string) $plugin->get_config('markingkey'));
+
+        // Files Proctor AI cannot read are left out. The teacher must know, or answers on
+        // those pages would silently score nothing.
+        $job->notsent = $collected->skipped ? json_encode($collected->skipped, JSON_UNESCAPED_UNICODE) : null;
 
         $fileids = [];
         $pages = [];

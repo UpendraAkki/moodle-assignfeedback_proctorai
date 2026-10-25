@@ -47,5 +47,16 @@ function xmldb_assignfeedback_proctorai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026102300, 'assignfeedback', 'proctorai');
     }
 
+    if ($oldversion < 2026102500) {
+        // Submitted files that were not sent to Proctor AI, so the teacher can check them by hand.
+        $table = new xmldb_table('assignfeedback_proctorai_job');
+        $field = new xmldb_field('notsent', XMLDB_TYPE_TEXT, null, null, null, null, null, 'errormessage');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026102500, 'assignfeedback', 'proctorai');
+    }
+
     return true;
 }

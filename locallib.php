@@ -285,7 +285,8 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             'status' => $job ? $job->status : 'none',
             'statuslabel' => get_string('status_' . ($job ? $job->status : 'none'), 'assignfeedback_proctorai'),
             'errormessage' => $job && $job->errormessage !== null && $job->status !== job_manager::STATUS_DONE
-                ? s($job->errormessage) : '',
+                ? $job->errormessage : '',
+            'notsent' => $job ? $this->notsent_summary($job) : '',
             'hasresult' => (bool) $result,
             'questions' => [],
         ];
@@ -344,6 +345,25 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             'editable' => $editable,
         ];
         return $context;
+    }
+
+    /**
+     * Which submitted files the job could not send, and why, as one line for the teacher.
+     *
+     * @param stdClass $job The job.
+     * @return string Plain text, empty when every file was sent.
+     */
+    protected function notsent_summary(stdClass $job): string {
+        $files = !empty($job->notsent) ? json_decode((string) $job->notsent, true) : [];
+        if (!is_array($files) || !$files) {
+            return '';
+        }
+        $items = [];
+        foreach ($files as $file) {
+            $reason = in_array($file['reason'] ?? '', ['type', 'size', 'empty'], true) ? $file['reason'] : 'type';
+            $items[] = get_string('notsent_' . $reason, 'assignfeedback_proctorai', (string) ($file['name'] ?? ''));
+        }
+        return get_string('notsent', 'assignfeedback_proctorai', implode('; ', $items));
     }
 
     /**
@@ -691,6 +711,22 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     }
 
     /**
+     * Keep only the students the current user may grade here: with separate groups and no
+     * "access all groups", those in the groups they can see. Posted user ids are not trusted.
+     *
+     * @param int[] $userids Student ids from the request.
+     * @return int[]
+     */
+    protected function visible_userids(array $userids): array {
+        $currentgroup = groups_get_activity_group($this->assignment->get_course_module(), true);
+        $participants = $this->assignment->list_participants($currentgroup, true);
+        return array_values(array_filter(
+            array_unique(array_map('intval', $userids)),
+            fn(int $userid) => isset($participants[$userid])
+        ));
+    }
+
+    /**
      * Students with a submission and no grade yet. With team submissions, one member per group.
      *
      * @return int[]
@@ -790,6 +826,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
     protected function view_confirm(array $userids): string {
         global $OUTPUT;
         require_capability('assignfeedback/proctorai:requestgrading', $this->assignment->get_context());
+        $userids = $this->visible_userids($userids);
 
         $blocker = job_manager::assignment_blocker($this->assignment);
         $eligible = [];
@@ -822,7 +859,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
 
         $context = [
             'blocker' => $blocker !== null ? get_string($blocker, 'assignfeedback_proctorai') : '',
-            'accounterror' => $accounterror !== '' ? s($accounterror) : '',
+            'accounterror' => $accounterror,
             'count' => $count,
             'requested' => count($userids),
             'skipped' => $reasons,
@@ -855,7 +892,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         require_sesskey();
         require_capability('assignfeedback/proctorai:requestgrading', $this->assignment->get_context());
         $users = required_param('selectedusers', PARAM_SEQUENCE);
-        $userids = array_filter(array_map('intval', explode(',', $users)));
+        $userids = $this->visible_userids(array_filter(array_map('intval', explode(',', $users))));
         $result = job_manager::queue_batch($this->assignment, $userids, (int) $USER->id);
         redirect(
             $this->page_url('status'),
@@ -875,7 +912,8 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         global $OUTPUT;
         $eligible = [];
         $skipped = [];
-        foreach (array_unique($userids) as $userid) {
+        $userids = $this->visible_userids($userids);
+        foreach ($userids as $userid) {
             $reason = result_applier::apply_blocker($this->assignment, $userid);
             if ($reason === null) {
                 $eligible[] = $userid;
@@ -891,7 +929,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         $hidden[] = ['name' => 'selectedusers', 'value' => implode(',', $eligible)];
         $context = [
             'count' => count($eligible),
-            'requested' => count(array_unique($userids)),
+            'requested' => count($userids),
             'skipped' => $reasons,
             'hasskipped' => (bool) $reasons,
             'canapply' => (bool) $eligible,
@@ -915,7 +953,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         }
         $users = required_param('selectedusers', PARAM_SEQUENCE);
         $applied = 0;
-        foreach (array_unique(array_filter(array_map('intval', explode(',', $users)))) as $userid) {
+        foreach ($this->visible_userids(array_filter(array_map('intval', explode(',', $users)))) as $userid) {
             if (result_applier::apply_to_grade($this->assignment, $userid) === 'applied') {
                 $applied++;
             }
@@ -943,6 +981,14 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
             '*',
             MUST_EXIST
         );
+        if (!$this->visible_userids([(int) $job->userid])) {
+            throw new \required_capability_exception(
+                $this->assignment->get_context(),
+                'moodle/site:accessallgroups',
+                'nopermissions',
+                ''
+            );
+        }
         if ($do === 'cancel') {
             $ok = job_manager::cancel($job);
             $message = get_string($ok ? 'jobcancelled' : 'jobnotcancelled', 'assignfeedback_proctorai');
@@ -965,7 +1011,7 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
         global $USER;
         require_sesskey();
         require_capability('assignfeedback/proctorai:requestgrading', $this->assignment->get_context());
-        $result = job_manager::retry_nobalance($this->assignment, (int) $USER->id);
+        $result = job_manager::retry_nobalance($this->assignment, (int) $USER->id, fn(array $ids) => $this->visible_userids($ids));
         redirect(
             $this->page_url('status'),
             get_string('queuedn', 'assignfeedback_proctorai', $result['queued']),
@@ -1010,7 +1056,8 @@ class assign_feedback_proctorai extends assign_feedback_plugin {
                 'name' => $name,
                 'status' => $status,
                 'statuslabel' => get_string('status_' . $status, 'assignfeedback_proctorai'),
-                'error' => $job->errormessage !== null && $status !== job_manager::STATUS_DONE ? s($job->errormessage) : '',
+                'error' => $job->errormessage !== null && $status !== job_manager::STATUS_DONE ? $job->errormessage : '',
+                'notsent' => $this->notsent_summary($job),
                 'marks' => $result ? get_string('summaryai', 'assignfeedback_proctorai', (object) [
                     'earned' => format_float((float) $result->earned, 2, true, true),
                     'max' => format_float((float) $result->maxmarks, 2, true, true),

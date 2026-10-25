@@ -108,6 +108,11 @@ class result_applier {
         $row = $DB->get_record('assignfeedback_proctorai', ['grade' => $grade->id]);
         $now = time();
 
+        if ($row && job_manager::is_released($assign, $userid)) {
+            // Released while this job ran: the student would see the new result unreviewed. Keep the old one.
+            return $row;
+        }
+
         $marks = is_array($result['marks'] ?? null) ? $result['marks'] : [];
         $earned = max(0.0, (float) ($marks['earned'] ?? 0));
         $max = max(0.0, (float) ($marks['max'] ?? 0));
@@ -175,11 +180,14 @@ class result_applier {
         $data->reviewcount = $reviewcount;
         $data->resultjson = json_encode($stored, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $data->timemodified = $now;
-        if (empty($data->approved)) {
-            // Once a teacher has approved the feedback text, a re-grade does not overwrite it.
-            $data->feedbacktext = self::feedback_html($stored);
-            $data->feedbackformat = FORMAT_HTML;
-        }
+        // A new result is a new draft. If a teacher had approved the previous one (only a teacher's
+        // own re-grade gets here; automatic ones are not queued), the student stops seeing the
+        // AI marks and feedback until a teacher approves again. The grade itself is not touched.
+        $data->approved = 0;
+        $data->approvedby = null;
+        $data->timeapproved = null;
+        $data->feedbacktext = self::feedback_html($stored);
+        $data->feedbackformat = FORMAT_HTML;
 
         if ($instance->markingworkflow && $suggested !== null && self::can_prefill($assign, $grade, $row ?: null)) {
             if (self::prefill($assign, $grade, $suggested)) {
@@ -193,6 +201,31 @@ class result_applier {
             $data->id = $DB->insert_record('assignfeedback_proctorai', $data);
         }
         return $data;
+    }
+
+    /**
+     * Whether a teacher has approved or released the AI result of this student's attempt.
+     *
+     * @param \assign $assign The assignment.
+     * @param int $userid The student.
+     * @param int $attempt The attempt number.
+     * @return bool
+     */
+    public static function is_reviewed(\assign $assign, int $userid, int $attempt): bool {
+        global $DB;
+        if (job_manager::is_released($assign, $userid)) {
+            return true;
+        }
+        $sql = 'SELECT r.approved
+                  FROM {assignfeedback_proctorai} r
+                  JOIN {assign_grades} g ON g.id = r.grade
+                 WHERE g.assignment = :assignment AND g.userid = :userid AND g.attemptnumber = :attempt';
+        $approved = $DB->get_field_sql($sql, [
+            'assignment' => $assign->get_instance()->id,
+            'userid' => $userid,
+            'attempt' => $attempt,
+        ]);
+        return !empty($approved);
     }
 
     /**

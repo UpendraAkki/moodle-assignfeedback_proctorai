@@ -33,6 +33,7 @@
     * status - Job status code
     * statuslabel - Job status text
     * errormessage - Why the job stopped
+    * notsent - Which submitted files were not sent to Proctor AI, and why
     * hasresult - Whether there is a result
     * earned, maxmarks, percentage - The total, with any teacher changes
     * reviewcount, needsreview - Questions flagged for review
@@ -47,6 +48,7 @@
         "status": "done",
         "statuslabel": "Graded by AI",
         "errormessage": "",
+        "notsent": "",
         "hasresult": true,
         "earned": "7",
         "maxmarks": "10",
@@ -107,6 +109,9 @@
             <span class="badge bg-secondary">{{statuslabel}}</span>
             {{#errormessage}}<span class="text-danger small d-block">{{errormessage}}</span>{{/errormessage}}
         </p>
+        {{#notsent}}
+            <div class="alert alert-warning py-1 px-2 mb-2 small" data-region="assignfeedback_proctorai-notsent">{{notsent}}</div>
+        {{/notsent}}
         {{#hasresult}}
             <p class="mb-1">
                 <strong>{{#str}} aitotal, assignfeedback_proctorai {{/str}}</strong>

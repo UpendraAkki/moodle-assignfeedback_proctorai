@@ -63,7 +63,12 @@ class get_status extends external_api {
         require_capability('mod/assign:grade', $context);
         require_capability('assignfeedback/proctorai:viewdetails', $context);
 
-        $job = job_manager::latest_job_for(new \assign($context, $cm, null), $userid);
+        $assign = new \assign($context, $cm, null);
+        // With separate groups, a teacher only sees the students of groups they can see.
+        if (!groups_user_groups_visible($assign->get_course(), $userid, $cm)) {
+            throw new \moodle_exception('notingroup');
+        }
+        $job = job_manager::latest_job_for($assign, $userid);
         $result = [
             'status' => $job ? $job->status : 'none',
             'statuslabel' => get_string('status_' . ($job ? $job->status : 'none'), 'assignfeedback_proctorai'),

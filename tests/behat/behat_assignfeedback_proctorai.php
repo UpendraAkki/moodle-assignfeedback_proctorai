@@ -182,6 +182,27 @@ class behat_assignfeedback_proctorai extends behat_base {
      * @param string $filename File name without extension.
      */
     public function i_save_a_proctor_ai_screenshot_named(string $filename): void {
+        $this->save_screenshot($filename, null);
+    }
+
+    /**
+     * Save a screenshot for the plugins directory with one element scrolled to the top of the view.
+     *
+     * @Given /^I save a Proctor AI screenshot named "(?P<filename>[a-z0-9-]+)" showing "(?P<selector>[^"]+)"$/
+     * @param string $filename File name without extension.
+     * @param string $selector CSS selector of the element to show.
+     */
+    public function i_save_a_proctor_ai_screenshot_named_showing(string $filename, string $selector): void {
+        $this->save_screenshot($filename, $selector);
+    }
+
+    /**
+     * Write the screenshot when PROCTORAI_SCREENSHOT_DIR is set.
+     *
+     * @param string $filename File name without extension.
+     * @param string|null $selector CSS selector of an element to scroll into view first.
+     */
+    protected function save_screenshot(string $filename, ?string $selector): void {
         $dir = getenv('PROCTORAI_SCREENSHOT_DIR');
         if (!$dir || !$this->running_javascript()) {
             return;
@@ -189,7 +210,14 @@ class behat_assignfeedback_proctorai extends behat_base {
         if (!is_dir($dir)) {
             mkdir($dir, 0777, true);
         }
-        $this->getSession()->resizeWindow(1366, 900);
+        $this->getSession()->resizeWindow(1366, 1000);
+        if ($selector !== null) {
+            $this->getSession()->executeScript(
+                '(function(s) { var e = document.querySelector(s); if (e) { e.scrollIntoView({block: "start"}); } })(' .
+                json_encode($selector) . ');'
+            );
+            $this->getSession()->wait(500);
+        }
         file_put_contents($dir . '/' . $filename . '.png', $this->getSession()->getScreenshot());
     }
 

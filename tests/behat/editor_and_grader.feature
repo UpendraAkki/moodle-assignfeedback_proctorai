@@ -36,7 +36,7 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
     And I set the field with xpath "//input[@id='keyeditor_q2_marks']" to "2"
     And I set the field with xpath "//input[@id='keyeditor_q2_options']" to "4 | 7 | 9"
     Then I should see "Total marks: 12 / 100"
-    And I save a Proctor AI screenshot named "markingkey-editor"
+    And I save a Proctor AI screenshot named "markingkey-editor" showing "[data-region='keyeditor-total']"
     And I press "Edit as text"
     And the field "assignfeedback_proctorai_markingkey" matches multiline:
       """
@@ -64,7 +64,7 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
     When I am on the grader for "student1" in "Assign 1"
     And I should see "AI total:"
     And I should see "Sample review reason"
-    And I save a Proctor AI screenshot named "grader-panel"
+    And I save a Proctor AI screenshot named "grader-panel" showing ".assignfeedback_proctorai_panel"
     And I set the field "Mark for question 2" to "5"
     Then I should see "9" in the "[data-region='assignfeedback_proctorai-total']" "css_element"
     And the field with xpath "//input[@name='grade']" matches value "90"
@@ -74,7 +74,7 @@ Feature: Edit the marking key question by question and adjust Proctor AI marks i
     And I should see "Marks per question"
     And I should see "5 / 6"
     And I should see "A good attempt."
-    And I save a Proctor AI screenshot named "student-view"
+    And I save a Proctor AI screenshot named "student-view" showing ".feedback"
 
   Scenario: The admin settings page shows the connection and balance from the API
     Given I log in as "admin"
